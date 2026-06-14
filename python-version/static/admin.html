@@ -303,10 +303,10 @@ input:checked + .slider:before{transform:translateX(20px)}
                 <div class="bar-item" v-for="d in charts.daily" :key="d.day">
                   <div class="bar-fill" :style="{height: (d.income / maxDaily * 180) + 'px'}" :title="'¥'+d.income"></div>
                   <span class="bar-label">{{ d.day }}日</span>
-  </div>
-</div>
-<div class="tc"><div v-for="t in ts" :key="t.id" class="tt" :class="t.ty">{{ t.msg }}</div></div>
-</div>
+                </div>
+              </div>
+              <div v-if="!charts.daily.length" style="text-align:center;color:var(--dim);padding:2rem;display:flex;align-items:center;justify-content:center;height:200px"><span><i class="fas fa-chart-bar" style="font-size:1.5rem;display:block;margin-bottom:0.5rem"></i>暂无数据</span></div>
+            </div>
           </div>
           <div class="chart-box">
             <h4><i class="fas fa-chart-line"></i> 近12月收入</h4>
@@ -317,7 +317,7 @@ input:checked + .slider:before{transform:translateX(20px)}
                   <span class="bar-label">{{ m.month.slice(5) }}月</span>
                 </div>
               </div>
-              <div v-if="!charts.monthly.length" style="text-align:center;color:var(--dim);padding:2rem">暂无数据</div>
+              <div v-if="!charts.monthly.length" style="text-align:center;color:var(--dim);padding:2rem;display:flex;align-items:center;justify-content:center;height:200px"><span><i class="fas fa-chart-line" style="font-size:1.5rem;display:block;margin-bottom:0.5rem"></i>暂无数据</span></div>
             </div>
           </div>
         </div>
