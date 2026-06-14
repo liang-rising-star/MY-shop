@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>管理员登录 - MY-Shop</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/vendor/font-awesome/css/all.min.css">
+  <script>
+  // 页面加载前先获取主题并应用，防止闪烁
+  (function() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/site/theme', false); // 同步请求
+    try {
+      xhr.send();
+      var data = JSON.parse(xhr.responseText);
+      var theme = data.theme || 'cyberpunk';
+      if (theme !== 'cyberpunk') {
+        document.documentElement.className = '';
+        document.body.className = 'theme-' + theme;
+      }
+      window._initialTheme = theme;
+    } catch(e) {
+      window._initialTheme = 'cyberpunk';
+    }
+  })();
+  </script>
+  <script src="/static/js/vue.min.js"></script>
+</head>
+<body>
+  <canvas id="particle-canvas"></canvas>
+  <div id="app">
+    <div v-if="checking" class="setup-overlay">
+      <div class="setup-box">
+        <div class="spinner"></div>
+        <p>验证身份中...</p>
+      </div>
+    </div>
+    <div v-else-if="loading" class="setup-overlay">
+      <div class="setup-box">
+        <div class="spinner success"></div>
+        <p>登录成功，正在跳转...</p>
+      </div>
+    </div>
+    <div v-else class="admin-login-container">
+      <div class="admin-login-box">
+        <div class="admin-login-header">
+          <div class="admin-login-icon">
+            <div class="logo-wrap" v-if="logoUrl">
+              <img :src="logoUrl" :alt="'logo'" @error="logoUrl=''" class="login-logo-img" />
+            </div>
+            <div class="hex-rotator" v-else><span>⬡</span></div>
+          </div>
+          <h1 class="admin-login-title glitch" data-text="ADMIN">ADMIN</h1>
+          <p class="admin-login-subtitle">管理员访问通道</p>
+        </div>
+        <form @submit.prevent="login" class="admin-login-form">
+          <div class="form-group">
+            <label><i class="fas fa-user"></i> 用户名</label>
+            <input v-model="username" type="text" class="input-neon" placeholder="输入管理员用户名" required />
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-lock"></i> 密码</label>
+            <input v-model="password" type="password" class="input-neon" placeholder="输入密码" required />
+          </div>
+          <p v-if="error" class="auth-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+          </p>
+          <button type="submit" class="btn-glow" :disabled="logging" style="width:100%;margin-top:1rem">
+            <span v-if="logging"><i class="fas fa-spinner fa-spin"></i> 验证中...</span>
+            <span v-else><i class="fas fa-sign-in-alt"></i> 进入后台</span>
+          </button>
+        </form>
+        <div class="admin-login-footer">
+          <a href="/" class="back-home">
+            <i class="fas fa-arrow-left"></i> 返回首页
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+const{createApp,ref,onMounted}=Vue
+createApp({
+setup(){
+const username=ref('')
+const password=ref('')
+const error=ref('')
+const logging=ref(false)
+const loading=ref(false)
+const checking=ref(true)
+const logoUrl=ref('')
+const currentTheme=ref(window._initialTheme||'cyberpunk')
+
+function initParticles(theme='cyberpunk'){
+  const canvas=document.getElementById('particle-canvas')
+  if(!canvas)return
+  const ctx=canvas.getContext('2d')
+  let w,h,particles=[],animationId
+  const resize=()=>{w=canvas.width=window.innerWidth;h=canvas.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize)
+  
+  function getParticleConfig(t){
+    switch(t){
+      case'simple':return{count:50,minR:3,maxR:6,speed:0.4,color:'rgba(59,130,246,1)',lineDist:100,attract:true}
+      case'cute':return{count:25,minR:10,maxR:18,speed:0.3,color:'rgba(255,105,180,1)',lineDist:80,hearts:true}
+      case'anime':return{count:60,minR:2,maxR:4,speed:0.5,color:'rgba(255,107,157,1)',lineDist:90}
+      default:return{count:80,minR:0.5,maxR:2,speed:0.5,color:'rgba(0,240,255,1)',lineDist:150}
+    }
+  }
+  
+  const config=getParticleConfig(theme)
+  for(let i=0;i<config.count;i++){
+    particles.push({
+      x:Math.random()*w,y:Math.random()*h,
+      vx:(Math.random()-0.5)*config.speed,vy:(Math.random()-0.5)*config.speed,
+      r:Math.random()*(config.maxR-config.minR)+config.minR,
+      alpha:Math.random()*0.5+0.3,heart:config.hearts?Math.random()>0.5:false
+    })
+  }
+  
+  function drawHeart(x,y,r,color,alpha){
+    ctx.save();ctx.translate(x,y);ctx.fillStyle=color.replace('1)',alpha+')');
+    ctx.beginPath();
+    ctx.moveTo(0,r*0.3);
+    ctx.bezierCurveTo(-r*0.5,-r*0.3,-r,r*0.1,-r*0.5,r*0.6);
+    ctx.bezierCurveTo(-r*0.2,r*r*0.8,r*0.2,r*r*0.8,r*0.5,r*0.6);
+    ctx.bezierCurveTo(r,r*0.1,r*0.5,-r*0.3,0,r*0.3);
+    ctx.fill();ctx.restore();
+  }
+  
+  function draw(){
+    if(animationId)cancelAnimationFrame(animationId)
+    ctx.clearRect(0,0,w,h)
+    
+    for(const p of particles){
+      p.x+=p.vx;p.y+=p.vy
+      if(p.x<0)p.x=w;if(p.x>w)p.x=0
+      if(p.y<0)p.y=h;if(p.y>h)p.y=0
+      
+      if(config.hearts&&p.heart){
+        drawHeart(p.x,p.y,p.r,config.color,p.alpha)
+      }else{
+        ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
+        ctx.fillStyle=config.color.replace('1)',p.alpha+')');ctx.fill()
+        ctx.shadowBlur=10;ctx.shadowColor=config.color;ctx.shadowBlur=0
+      }
+    }
+    
+    for(let i=0;i<particles.length;i++)
+      for(let j=i+1;j<particles.length;j++){
+        const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,dist=Math.sqrt(dx*dx+dy*dy)
+        if(dist<config.lineDist){
+          const alpha=0.12*(1-dist/config.lineDist)
+          ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y)
+          ctx.strokeStyle=config.color.replace('1)',alpha+')');ctx.lineWidth=1;ctx.stroke()
+          
+          if(config.attract){
+            const force=(config.lineDist-dist)/config.lineDist*0.008
+            particles[i].vx+=dx*force;particles[i].vy+=dy*force
+            particles[j].vx-=dx*force;particles[j].vy-=dy*force
+          }
+        }
+      }
+    animationId=requestAnimationFrame(draw)
+  }
+  draw()
+}
+
+function getCookie(name){
+  const v=document.cookie.match('(^|; )'+name+'=([^;]*)');
+  return v?decodeURIComponent(v[2]):null
+}
+
+const urlMsg = new URLSearchParams(window.location.search).get('msg') || ''
+
+async function validateToken(){
+  const savedToken = (()=>{try{return localStorage.getItem('admin_token')||localStorage.getItem('token')}catch(e){return null}})()
+  const cookieToken = getCookie('admin_token')
+  const tk = savedToken || cookieToken
+  if(!tk)return {admin:false}
+  try{
+    const r=await fetch('/api/profile',{method:'GET',headers:{'Authorization':'Bearer '+tk}})
+    if(r.ok){
+      const d=await r.json()
+      if(d.is_admin){
+        try{localStorage.setItem('admin_token',tk)}catch(e){}
+        document.cookie='admin_token='+tk+';path=/;max-age=86400'
+        return {admin:true}
+      }
+      return {admin:false, loggedIn:true}
+    }
+    return {admin:false}
+  }catch{return {admin:false}}
+}
+
+async function checkAuth(){
+  const result=await validateToken()
+  if(result.admin){
+    window.location.href='/admin'
+    return
+  }
+  if(result.loggedIn){
+    try{localStorage.removeItem('admin_token')}catch(e){}
+    document.cookie='admin_token=;path=/;max-age=0'
+    checking.value=false
+    return
+  }
+  document.cookie='admin_token=;path=/;max-age=0'
+  if(urlMsg){
+    error.value = urlMsg
+    history.replaceState(null, '', '/admin-login')
+  }
+  checking.value=false
+}
+
+onMounted(()=>{
+  initParticles(currentTheme.value)
+  checkAuth()
+  fetch('/api/site/settings').then(r=>r.json()).then(d=>{if(d.settings?.logo)logoUrl.value=d.settings.logo}).catch(()=>{})
+})
+
+async function login(){
+  if(!username.value||!password.value){error.value='请填写用户名和密码';return}
+  error.value='';logging.value=true
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username.value,password:password.value})})
+    const d=await r.json()
+    if(!r.ok){error.value=d.error||'登录失败('+r.status+')';logging.value=false;return}
+    if(d.is_admin){
+      try{localStorage.setItem('admin_token',d.token)}catch(e){}
+      loading.value=true
+      setTimeout(()=>{window.location.href='/admin'},500)
+    }else{error.value='不是管理员账户';logging.value=false}
+  }catch(e){error.value='登录失败';logging.value=false}
+}
+return{username,password,error,logging,loading,checking,login,logoUrl}
+}
+}).mount('#app')
+</script>
+<style>
+/* 赛博朋克主题（默认） */
+:root{--bg:#0a0a0f;--bg2:#12121a;--bg3:#1a1a2e;--border:rgba(0,240,255,0.2);--neon-cyan:#00f0ff;--neon-magenta:#ff00aa;--neon-purple:#7000ff;--neon-green:#00ff88;--neon-red:#ff3366;--text:#e0e0ff;--text-dim:#8888aa;--particle-color:rgba(0,240,255,1)}
+
+/* 简约主题 */
+.theme-simple{--bg:#f5f7fa;--bg2:#ffffff;--bg3:#e8ecf1;--border:#d1d5db;--neon-cyan:#3b82f6;--neon-magenta:#ec4899;--neon-purple:#8b5cf6;--neon-green:#10b981;--neon-red:#ef4444;--text:#1f2937;--text-dim:#6b7280;--particle-color:rgba(59,130,246,1)}
+
+/* 少女主题 */
+.theme-cute{--bg:#fff5f8;--bg2:#fff0f5;--bg3:#ffe4ec;--border:#ffb6c1;--neon-cyan:#ff69b4;--neon-magenta:#ff69b4;--neon-purple:#da70d6;--neon-green:#ff1493;--neon-red:#ff69b4;--text:#d63384;--text-dim:#c77d9a;--particle-color:rgba(255,105,180,1)}
+
+/* 二次元主题 */
+.theme-anime{--bg:#1a1a2e;--bg2:rgba(26,26,46,0.95);--bg3:rgba(40,40,70,0.9);--border:rgba(255,200,255,0.2);--neon-cyan:#4ecdc4;--neon-magenta:#ff6b9d;--neon-purple:#c44dff;--neon-green:#7bed9f;--neon-red:#ff6b9d;--text:#e8e0f0;--text-dim:#a89ec8;--particle-color:rgba(255,107,157,1)}
+
+body{margin:0;padding:0;font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;overflow:hidden;transition:background 0.3s,color 0.3s}
+.admin-login-container{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.admin-login-box{width:100%;max-width:360px;padding:1.8rem 1.5rem;background:var(--bg2);border:1px solid rgba(0,240,255,0.2);border-radius:14px;box-shadow:0 0 30px rgba(0,240,255,0.1),inset 0 1px 0 rgba(255,255,255,0.05);backdrop-filter:blur(10px);position:relative;overflow:hidden;transition:background 0.3s,border-color 0.3s}
+.admin-login-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent)}
+.admin-login-box::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--neon-magenta),transparent)}
+.admin-login-header{text-align:center;margin-bottom:1.5rem}
+.admin-login-icon{width:60px;height:60px;margin:0 auto 1.2rem;display:flex;align-items:center;justify-content:center;position:relative}
+.hex-rotator{font-size:3rem;color:var(--neon-cyan);animation:rot 3s linear infinite;text-shadow:0 0 20px rgba(0,240,255,0.5);line-height:1}
+.hex-rotator span{display:block}
+@keyframes rot{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.login-logo-img{max-width:60px;max-height:60px;object-fit:contain;border-radius:10px}
+.admin-login-title{font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:900;margin:0 0 0.3rem;color:var(--neon-cyan);text-shadow:0 0 15px rgba(0,240,255,0.5);transition:color 0.3s}
+.admin-login-subtitle{font-size:0.8rem;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase;transition:color 0.3s}
+.admin-login-form .form-group{margin-bottom:1rem}
+.admin-login-form .form-group input{width:100%;box-sizing:border-box;padding:0.6rem 0.8rem;font-size:0.85rem}
+.admin-login-form label{display:block;margin-bottom:0.4rem;font-size:0.8rem;color:var(--text-dim);transition:color 0.3s}
+.admin-login-form label i{margin-right:0.5rem;color:var(--neon-cyan)}
+.admin-login-form .auth-error{margin:1rem 0;padding:0.75rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:var(--neon-red);font-size:0.9rem;text-align:center}
+.admin-login-form .auth-error i{margin-right:0.5rem}
+.admin-login-footer{text-align:center;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,0.05)}
+.admin-login-footer .back-home{color:var(--text-dim);text-decoration:none;font-size:0.9rem;transition:color 0.3s}
+.admin-login-footer .back-home:hover{color:var(--neon-cyan)}
+.admin-login-footer .back-home i{margin-right:0.5rem}
+#particle-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;background:var(--bg);transition:background 0.3s}
+.spinner{width:50px;height:50px;border:3px solid rgba(0,240,255,0.2);border-top-color:var(--neon-cyan);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 1rem;transition:border-color 0.3s,border-top-color 0.3s}
+.spinner.success{border-top-color:var(--neon-green)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.setup-overlay{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.setup-box{text-align:center;color:var(--text-dim);font-size:1.1rem;transition:color 0.3s}
+.glow-btn{display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 1.5rem;background:linear-gradient(135deg,var(--neon-cyan),var(--neon-magenta));color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s;box-shadow:0 0 20px rgba(0,240,255,0.3)}
+.glow-btn:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(0,240,255,0.5)}
+.input-neon{background:var(--bg3);border:1px solid var(--border);color:var(--text);transition:all 0.3s}
+.input-neon:focus{border-color:var(--neon-cyan);box-shadow:0 0 15px rgba(0,240,255,0.2)}
+.btn-glow{font-family:'Orbitron',sans-serif;border:2px solid var(--neon-cyan);background:transparent;color:var(--neon-cyan);transition:all 0.3s}
+.btn-glow:hover:not(:disabled){background:var(--neon-cyan);color:var(--bg)}
+</style>
+</body>
+</html>

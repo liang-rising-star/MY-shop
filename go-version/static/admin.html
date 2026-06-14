@@ -1,0 +1,225 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>管理后台 - MY-Shop</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+:root{--bg:#1a1d23;--bg2:#22262d;--bg3:#2b2f37;--border:#353940;--text:#d4d7dc;--dim:#888ea0;--primary:#42a5f5;--success:#66bb6a;--danger:#ef5350;--warning:#ffa726;--sidebar-w:230px;--header-h:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+a{color:var(--primary);text-decoration:none}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+#app{display:flex;min-height:100vh}
+#sidebar{width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.shdr{display:flex;align-items:center;padding:0.8rem 1rem;border-bottom:1px solid var(--border);gap:0.5rem}
+.shdr span{font-weight:600}
+.ub{text-align:center;padding:1rem;border-bottom:1px solid var(--border)}
+.av{width:44px;height:44px;margin:0 auto 0.5rem;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:600;border-radius:50%;background:linear-gradient(135deg,var(--primary),#7c4dff);color:#fff}
+.un{font-size:0.85rem;font-weight:500}
+.ua{display:flex;justify-content:center;gap:0.8rem;margin-top:0.4rem;font-size:0.8rem}
+.ua a{color:var(--dim)}.ua a:hover{color:var(--text)}
+.nav{flex:1;overflow-y:auto;padding:0.3rem 0}
+.nav a{display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.85rem;color:var(--dim);font-size:0.85rem;cursor:pointer;border-left:3px solid transparent;transition:.15s}
+.nav a:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.nav a.on{color:#fff;background:rgba(66,165,245,.1);border-left-color:var(--primary)}
+.nav i{width:16px;text-align:center}
+.sf{border-top:1px solid var(--border);padding:0.5rem 0.85rem;font-size:0.75rem;color:var(--dim)}
+#main{flex:1;margin-left:var(--sidebar-w);display:flex;flex-direction:column;min-height:100vh}
+#hdr{height:var(--header-h);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;background:var(--bg2);gap:1rem;position:sticky;top:0;z-index:50}
+#hdr .tl{color:var(--dim);font-size:0.85rem}
+#ct{flex:1;padding:1.5rem;overflow-y:auto}
+.bk{background:var(--bg2);border:1px solid var(--border);border-radius:6px;margin-bottom:1rem}
+.bh{display:flex;align-items:center;justify-content:space-between;padding:0.7rem 1rem;border-bottom:1px solid var(--border)}
+.bh h3{font-size:0.95rem;font-weight:600}
+.bd{padding:1rem}
+.st{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.8rem;margin-bottom:1rem}
+.sc{text-align:center;padding:1.2rem 0.5rem;background:var(--bg3);border-radius:6px}
+.sn{font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--primary)}
+.sl{font-size:0.78rem;color:var(--dim);margin-top:0.2rem}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:0.5rem 0.7rem;border-bottom:1px solid var(--border);font-size:0.85rem}
+th{color:var(--dim);font-weight:500;font-size:0.78rem;background:var(--bg3)}
+tr:hover td{background:rgba(255,255,255,.015)}
+.fc{background:var(--bg3);border-radius:6px;padding:1rem;margin-bottom:1rem}
+.fr{display:flex;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.5rem}
+.fg{flex:1;min-width:160px}
+.fg label{display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem}
+input,select,textarea{width:100%;padding:0.45rem 0.7rem;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.85rem;border-radius:4px;outline:none;font-family:inherit}
+input:focus,select:focus{border-color:var(--primary)}
+textarea{resize:vertical;min-height:70px}
+.btn{display:inline-flex;align-items:center;gap:0.3rem;padding:0.4rem 0.8rem;font-size:0.85rem;border-radius:4px;border:1px solid transparent;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap}
+.btn-p{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-p:hover{opacity:.85}
+.btn-a{background:var(--bg3);border-color:var(--border);color:var(--text)}
+.btn-a:hover{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-dr{background:var(--bg3);border-color:var(--border);color:var(--danger)}
+.btn-dr:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn-w{background:var(--bg3);border-color:var(--border);color:var(--warning)}
+.btn-w:hover{background:var(--warning);border-color:var(--warning);color:#fff}
+.btn-sm{padding:0.25rem 0.5rem;font-size:0.78rem}
+.bg{display:inline-block;padding:0.1rem 0.4rem;font-size:0.72rem;border-radius:3px}
+.bg.paid{background:rgba(66,165,245,.2);color:var(--primary)}
+.bg.done{background:rgba(102,187,106,.2);color:var(--success)}
+.bg.wait{background:rgba(255,167,38,.2);color:var(--warning)}
+.bg.bad{background:rgba(239,83,80,.2);color:var(--danger)}
+.bg.yes{background:rgba(102,187,106,.2);color:var(--success)}
+.bg.no{background:rgba(136,142,160,.2);color:var(--dim)}
+.bg.normal{background:rgba(255,255,255,.1)}
+.bg.blindbox{background:rgba(255,167,38,.2);color:var(--warning)}
+.bg.timed{background:rgba(239,83,80,.2);color:var(--danger)}
+.bg.available{background:rgba(102,187,106,.2);color:var(--success)}
+.bg.sold{background:rgba(136,142,160,.2);color:var(--dim)}
+.ac{display:flex;gap:0.3rem;flex-wrap:wrap}
+.tw{overflow-x:auto}
+.tc{position:fixed;top:60px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px}
+.tt{padding:10px 20px;border-radius:6px;font-size:.85rem;border:1px solid;animation:ti .3s ease}
+.tt.ok{background:rgba(0,255,136,.1);border-color:var(--success);color:var(--success)}
+.tt.er{background:rgba(255,0,0,.1);border-color:var(--danger);color:var(--danger)}
+@keyframes ti{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.lo{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:1rem;background:var(--bg)}
+.sp{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:s .6s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+.fw{width:100%}
+.mt05{margin-top:.5rem}
+.mb1{margin-bottom:1rem}
+</style>
+</head>
+<body>
+<div id="app">
+<div v-if="!ready" class="lo">
+  <div class="sp"></div>
+  <p style="color:var(--dim)">{{ msg }}</p>
+  <button v-if="msg.includes('失败')" class="btn btn-p" @click="ld" style="margin-top:1rem">重试</button>
+</div>
+<template v-if="ready">
+<aside id="sidebar">
+  <div class="shdr"><span>管理后台</span><a href="/" target="_blank" style="color:var(--dim);font-size:.8rem;margin-left:auto"><i class="fas fa-external-link-alt"></i></a></div>
+  <div class="ub">
+    <div class="av">{{ (un||'A').charAt(0).toUpperCase() }}</div>
+    <div class="un">{{ un||'管理员' }}</div>
+    <div class="ua"><a href="/" target="_blank"><i class="fas fa-home"></i> 前台</a><a href="#" @click.prevent="lo" style="color:var(--danger)"><i class="fas fa-sign-out-alt"></i> 退出</a></div>
+  </div>
+  <div class="nav">
+    <a v-for="m in me" :key="m.k" :class="{on:tb===m.k}" href="#" @click.prevent="tb=m.k"><i :class="m.i"></i>{{ m.l }}</a>
+  </div>
+  <div class="sf"><i class="fas fa-code-branch"></i> v1.0.0</div>
+</aside>
+<div id="main">
+  <div id="hdr"><i class="fas fa-bars" style="cursor:pointer;color:var(--dim)"></i><span class="tl">{{ al }}</span></div>
+  <div id="ct">
+
+<!-- dashboard -->
+<div v-if="tb==='db'">
+<div class="st">
+<div class="sc"><div class="sn">¥{{ (da?.turnover||0).toFixed(2) }}</div><div class="sl">营业额</div></div>
+<div class="sc"><div class="sn">{{ da?.order_num||0 }}</div><div class="sl">订单数</div></div>
+<div class="sc"><div class="sn">¥{{ (da?.profit||0).toFixed(2) }}</div><div class="sl">盈利</div></div>
+<div class="sc"><div class="sn">{{ da?.user_register_num||0 }}</div><div class="sl">新注册</div></div>
+<div class="sc"><div class="sn">¥{{ (da?.online_amount||0).toFixed(2) }}</div><div class="sl">在线支付</div></div>
+<div class="sc"><div class="sn">¥{{ (da?.recharge_amount||0).toFixed(2) }}</div><div class="sl">充值</div></div>
+</div>
+<div class="st">
+<div class="sc"><div class="sn">{{ ps.length }}</div><div class="sl">商品</div></div>
+<div class="sc"><div class="sn">{{ us.length }}</div><div class="sl">用户</div></div>
+<div class="sc"><div class="sn">{{ cs.length }}</div><div class="sl">优惠券</div></div>
+</div>
+</div>
+
+<!-- products -->
+<div v-if="tb==='pd'" class="bk">
+<div class="bh"><h3>商品管理</h3><button class="btn btn-p" @click="spf=!spf;eid=0;pf={name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'}"><i class="fas fa-plus"></i> 新建</button></div>
+<div class="bd">
+<div v-if="spf" class="fc">
+<div class="fr"><div class="fg"><label>名称</label><input v-model="pf.name" /></div><div class="fg"><label>售价</label><input v-model.number="pf.price" type="number" step="0.01" /></div></div>
+<div class="fr"><div class="fg"><label>分类</label><select v-model.number="pf.category_id"><option value="0">无</option><option v-for="c in ct" :key="c.id" :value="c.id">{{ c.name }}</option></select></div><div class="fg"><label>类型</label><select v-model="pf.type"><option value="normal">普通</option><option value="blindbox">盲盒</option><option value="timed">限时</option></select></div><div class="fg"><label>发货</label><select v-model="pf.delivery_type"><option value="card_key">卡密</option><option value="file">文件</option><option value="email">邮件</option></select></div></div>
+<div class="fg"><label>描述</label><textarea v-model="pf.description" rows="2"></textarea></div>
+<button class="btn btn-p" @click="svPd">{{ eid?'更新':'创建' }}</button>
+</div>
+<div class="tw"><table><thead><tr><th>名称</th><th>价格</th><th>类型</th><th>可售</th><th>操作</th></tr></thead>
+<tbody><tr v-for="p in ps" :key="p.id"><td>{{ p.name }}</td><td>¥{{ p.price }}</td><td><span class="bg" :class="p.type">{{ {normal:'普通',blindbox:'盲盒',timed:'限时'}[p.type]||p.type }}</span></td><td>{{ p.card_key_count }}</td><td class="ac"><button class="btn btn-sm btn-a" @click="edPd(p)">编辑</button><button class="btn btn-sm btn-dr" @click="dlPd(p.id)">删除</button><button class="btn btn-sm btn-a" @click="sk(p)">卡密</button><button class="btn btn-sm btn-w" v-if="p.type==='blindbox'" @click="sp(p)">奖池</button></td></tr></tbody></table></div>
+</div></div>
+
+<!-- categories -->
+<div v-if="tb==='ct'" class="bk">
+<div class="bh"><h3>分类管理</h3><button class="btn btn-p" @click="scf=!scf"><i class="fas fa-plus"></i> 新建</button></div>
+<div class="bd">
+<div v-if="scf" class="fc"><div class="fr"><div class="fg"><label>名称</label><input v-model="cf.name" /></div><div class="fg"><label>排序</label><input v-model.number="cf.sort_order" type="number" /></div></div><button class="btn btn-p" @click="mkCt">创建</button></div>
+<div class="tw"><table><thead><tr><th>名称</th><th>排序</th><th>操作</th></tr></thead><tbody><tr v-for="c in ct" :key="c.id"><td>{{ c.name }}</td><td>{{ c.sort_order||0 }}</td><td><button class="btn btn-sm btn-dr" @click="dlCt(c.id)">删除</button></td></tr></tbody></table></div>
+</div></div>
+
+<!-- keys -->
+<div v-if="tb==='ke'" class="bk">
+<div class="bh"><h3>卡密管理</h3></div>
+<div class="bd">
+<select v-model="kp" class="fw mb1"><option value="0">选择商品</option><option v-for="p in ps" :key="p.id" :value="p.id">{{ p.name }}</option></select>
+<div v-if="kp"><textarea v-model="kt" rows="5" class="fw"></textarea><button class="btn btn-p mt05" @click="imK">导入</button>
+<div class="tw mt05" v-if="ks.length"><table><thead><tr><th>卡密</th><th>状态</th></tr></thead><tbody><tr v-for="k in ks" :key="k.id"><td style="font-family:monospace;color:var(--success)">{{ k.key }}</td><td><span class="bg" :class="k.status">{{ k.status }}</span></td></tr></tbody></table></div></div>
+</div></div>
+
+<!-- orders -->
+<div v-if="tb==='or'" class="bk">
+<div class="bh"><h3>订单管理</h3></div>
+<div class="bd">
+<div class="tw"><table><thead><tr><th>订单号</th><th>商品</th><th>金额</th><th>状态</th><th>时间</th></tr></thead>
+<tbody><tr v-for="o in or" :key="o.id"><td style="font-family:monospace;font-size:.8rem">#{{ o.order_no }}</td><td>{{ o.product?.name||'-' }}</td><td>¥{{ o.final_price.toFixed(2) }}</td><td><span class="bg" :class="o.status">{{ stTxt(o.status) }}</span></td><td style="color:var(--dim);font-size:.8rem">{{ fm(o.created_at) }}</td></tr></tbody></table></div>
+</div></div>
+
+<!-- users -->
+<div v-if="tb==='us'" class="bk">
+<div class="bh"><h3>用户管理</h3></div>
+<div class="bd">
+<div class="tw"><table><thead><tr><th>ID</th><th>用户名</th><th>等级</th><th>积分</th><th>邮箱</th><th>管理员</th><th>注册</th></tr></thead>
+<tbody><tr v-for="u in us" :key="u.id"><td>{{ u.id }}</td><td>{{ u.username }}</td><td>Lv{{ u.level }}</td><td>{{ u.points }}</td><td style="color:var(--dim)">{{ u.email||'-' }}</td><td><span class="bg" :class="u.is_admin?'yes':'no'">{{ u.is_admin?'是':'否' }}</span></td><td style="color:var(--dim);font-size:.8rem">{{ fm(u.created_at) }}</td></tr></tbody></table></div>
+</div></div>
+
+<!-- coupons -->
+<div v-if="tb==='co'" class="bk">
+<div class="bh"><h3>优惠券</h3><button class="btn btn-p" @click="sco=!sco"><i class="fas fa-plus"></i> 新建</button></div>
+<div class="bd">
+<div v-if="sco" class="fc">
+<div class="fr"><div class="fg"><label>优惠码</label><input v-model="cpc.code" /></div><div class="fg"><label>类型</label><select v-model="cpc.type"><option value="percentage">百分比</option><option value="fixed">固定金额</option></select></div><div class="fg"><label>值</label><input v-model.number="cpc.value" type="number" step="0.01" /></div></div>
+<div class="fr"><div class="fg"><label>最低</label><input v-model.number="cpc.min_amount" type="number" /></div><div class="fg"><label>次数</label><input v-model.number="cpc.max_uses" type="number" /></div><div class="fg"><label>过期</label><input v-model="cpc.expires_at" type="datetime-local" /></div></div>
+<button class="btn btn-p" @click="mkCo">创建</button>
+</div>
+<div class="tw"><table><thead><tr><th>优惠码</th><th>折扣</th><th>已用</th><th>过期</th><th>操作</th></tr></thead>
+<tbody><tr v-for="c in cs" :key="c.id"><td style="font-family:monospace;color:var(--primary)">{{ c.code }}</td><td>{{ c.type==='percentage'?c.value+'%':'¥'+c.value }}</td><td>{{ c.used_count }}/{{ c.max_uses||'∞' }}</td><td style="color:var(--dim);font-size:.8rem">{{ fm(c.expires_at) }}</td><td><button class="btn btn-sm btn-dr" @click="dlCo(c.id)">删除</button></td></tr></tbody></table></div>
+</div></div>
+
+</div></div>
+</template>
+<div class="tc"><div v-for="t in ts" :key="t.id" class="tt" :class="t.ty">{{ t.msg }}</div></div>
+</div>
+<script>
+const tk=localStorage.getItem('token')
+if(!tk||tk=='null'||tk=='undefined'){localStorage.removeItem('token');location.href='/#login'}
+const api={async rq(m,p,b){const r=await fetch(p,{method:m,headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},body:b?JSON.stringify(b):undefined});if(r.status==401||r.status==403){localStorage.removeItem('token');location.href='/#login'}const d=await r.json();if(!r.ok)throw new Error(d.detail||d.error||'请求失败');return d}}
+const{createApp,ref,computed,onMounted}=Vue
+createApp({setup(){
+const rd=ref(false),msg=ref('加载中...'),tb=ref('db'),un=ref('')
+const ts=ref([])
+function tst(m,ty){ts.value.push({id:Date.now(),msg:m,ty});setTimeout(()=>ts.value.splice(0,1),3000)}
+const ps=ref([]),or=ref([]),us=ref([]),cs=ref([]),ct=ref([]),ks=ref([]),da=ref({})
+const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'})
+const sco=ref(false),scf=ref(false),cpc=ref({code:'',type:'percentage',value:0,min_amount:0,max_uses:0,expires_at:''}),cf=ref({name:'',sort_order:0})
+const me=[{k:'db',i:'fas fa-chart-pie',l:'概览'},{k:'pd',i:'fas fa-box',l:'商品'},{k:'ct',i:'fas fa-folder',l:'分类'},{k:'ke',i:'fas fa-key',l:'卡密'},{k:'or',i:'fas fa-list',l:'订单'},{k:'us',i:'fas fa-users',l:'用户'},{k:'co',i:'fas fa-ticket-alt',l:'优惠券'}]
+const al=computed(()=>me.find(m=>m.k===tb.value)?.l||'')
+async function ld(){try{msg.value='正在加载数据...';const[p,o,u,cp,c,se,pr]=await Promise.all([api.rq('GET','/api/products'),api.rq('GET','/api/admin/orders'),api.rq('GET','/api/admin/users'),api.rq('GET','/api/admin/coupons'),api.rq('GET','/api/categories'),api.rq('GET','/api/admin/settings'),api.rq('GET','/api/profile')]);ps.value=p.products||[];or.value=o;us.value=u;cs.value=cp;ct.value=c;un.value=pr?.username||'';api.rq('GET','/api/admin/dashboard?period=0').then(d=>da.value=d).catch(()=>{});rd.value=true}catch(e){console.error('加载失败:',e);msg.value='加载失败: '+e.message;tst('加载失败，请刷新重试','er');setTimeout(()=>{if(e.message.includes('401')||e.message.includes('403')||e.message.includes('登录')){localStorage.removeItem('token');location.href='/#login'}},2000)}}
+function svPd(){const d=pf.value;if(!d.name||!d.price){tst('请填写完整','er');return}const fn=eid.value?api.rq('PUT','/api/admin/products/'+eid.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{spf.value=false;eid.value=0;pf.value={name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'};api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已保存','ok')}).catch(e=>tst(e.message,'er'))}
+function edPd(p){eid.value=p.id;pf.value={name:p.name,description:p.description||'',price:p.price,category_id:p.category_id,type:p.type,delivery_type:p.delivery_type||'card_key'};spf.value=true}
+function dlPd(id){if(!confirm('确定删除？'))return;api.rq('DELETE','/api/admin/products/'+id).then(()=>{api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+function sk(p){kp.value=p.id;tb.value='ke';api.rq('GET','/api/admin/cardkeys?product_id='+p.id).then(d=>ks.value=d)}
+function sp(p){const e=prompt('奖池(商品ID:概率%)每行:\n2:50\n3:30');if(!e)return;api.rq('PUT','/api/admin/products/'+p.id+'/blindbox',{entries:e.trim().split('\n').map(l=>{const[pid,prob]=l.split(':');return{prize_id:parseInt(pid),probability:parseFloat(prob)}})}).then(()=>tst('奖池已更新','ok')).catch(e=>tst(e.message,'er'))}
+async function imK(){if(!kp.value)return;const d=await api.rq('POST','/api/admin/cardkeys/import',{product_id:kp.value,keys:kt.value});kt.value='';api.rq('GET','/api/admin/cardkeys?product_id='+kp.value).then(d=>ks.value=d);tst('已导入 '+d.count+' 条','ok')}
+async function mkCo(){const d=cpc.value;if(!d.code||!d.value){tst('填写完整','er');return}await api.rq('POST','/api/admin/coupons',{...d,expires_at:new Date(d.expires_at).toISOString()});cpc.value={code:'',type:'percentage',value:0,min_amount:0,max_uses:0,expires_at:''};api.rq('GET','/api/admin/coupons').then(d=>cs.value=d);tst('已创建','ok')}
+function dlCo(id){if(!confirm('确定删除？'))return;api.rq('DELETE','/api/admin/coupons/'+id).then(()=>{api.rq('GET','/api/admin/coupons').then(d=>cs.value=d);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+async function mkCt(){if(!cf.value.name){tst('填写名称','er');return}await api.rq('POST','/api/admin/categories',cf.value);cf.value={name:'',sort_order:0};api.rq('GET','/api/categories').then(d=>ct.value=d);tst('已创建','ok')}
+function dlCt(id){if(!confirm('确定删除？'))return;api.rq('DELETE','/api/admin/categories/'+id).then(()=>{api.rq('GET','/api/categories').then(d=>ct.value=d);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+function lo(){localStorage.removeItem('token');location.href='/'}
+function fm(t){return t?t.slice(0,19).replace('T',' '):''}
+function stTxt(s){return{pending:'待支付',paid:'已支付',done:'已完成',completed:'已完成',refunded:'已退款',cancelled:'已取消'}[s]||s}
+onMounted(ld)
+return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,sco,scf,cpc,cf,me,al,svPd,edPd,dlPd,sk,sp,imK,mkCo,dlCo,mkCt,dlCt,lo,fm,stTxt}
+}}).mount('#app')
+</script>
+</body></html>

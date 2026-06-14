@@ -1,0 +1,60 @@
+# Git Ignore Configuration for MY-Shop
+
+# Python Dependencies
+venv/
+.env
+.env.*
+*.pyc
+__pycache__/
+*.egg-info/
+.Python
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads and Media
+uploads/
+static/uploads/
+*.zip
+*.rar
+*.7z
+
+# ACG Folder (PHP Version)
+acg/
+acg-faka-main/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+nul
+
+# Build
+dist/
+build/
+
+# Temporary
+tmp/
+temp/
+.cache/
+
+# Environment
+jwt_secret.txt
+
+# Test/Check Files
+admin_script_check.js
+temp_check.js
+_test_logs.py
