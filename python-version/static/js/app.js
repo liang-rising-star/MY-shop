@@ -364,7 +364,9 @@ const timedProducts = computed(() => eventProducts.value)
             toast('支付失败: ' + e.message, 'error')
           }
         } else {
-          toast('订单已创建，请在支付页面完成付款', 'info')
+          const methodNames = {alipay:'支付宝',wxpay:'微信支付',qqpay:'QQ钱包',mazf:'码支付',yishoumi:'易收米',usdt:'USDT'}
+          const name = methodNames[selectedPayMethod.value] || selectedPayMethod.value
+          toast(`支付通道【${name}】暂未完成对接，请联系客服或管理员修复`, 'error')
           showPayModal.value = false
           loadOrders(); loadProducts(); loadProfile()
         }

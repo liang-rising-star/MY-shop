@@ -580,17 +580,67 @@ select.input-neon { cursor: pointer; }
   text-align: center;
 }
 .qty-control {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--neon-cyan);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 38px;
+}
+.qty-btn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: transparent;
+  color: var(--neon-cyan);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
 }
+.qty-btn:hover:not(:disabled) { background: var(--neon-cyan); color: var(--bg); }
+.qty-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.qty-control .qty-input {
+  width: 52px;
+  height: 38px;
+  text-align: center;
+  border: none;
+  border-left: 1px solid var(--neon-cyan);
+  border-right: 1px solid var(--neon-cyan);
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 0;
+  padding: 0;
+  outline: none;
+  box-shadow: none;
+}
+.qty-control .qty-input:focus { box-shadow: none; }
+.qty-control .qty-input::-webkit-outer-spin-button,
+.qty-control .qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qty-control .qty-input::-webkit-outer-spin-button,
+.qty-control .qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qty-control .qty-input::-moz-appearance { textfield; }
 .qty-btn {
   width: 36px;
   height: 36px;
   border: 2px solid var(--neon-cyan);
   background: var(--bg3);
   color: var(--neon-cyan);
-  font-size: 1.2rem;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -600,7 +650,7 @@ select.input-neon { cursor: pointer; }
 }
 .qty-btn:first-child { border-radius: 6px 0 0 6px; }
 .qty-btn:last-child { border-radius: 0 6px 6px 0; }
-.qty-btn:hover:not(:disabled) { background: var(--neon-cyan); color: #000; box-shadow: 0 0 12px var(--neon-cyan); }
+.qty-btn:hover:not(:disabled) { background: var(--neon-cyan); color: var(--bg); box-shadow: 0 0 12px var(--neon-cyan); }
 .qty-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: var(--text-dim); color: var(--text-dim); }
 .qty-control .qty-input {
   width: 56px;
