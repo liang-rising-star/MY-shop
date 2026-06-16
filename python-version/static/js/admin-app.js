@@ -377,7 +377,7 @@ const couponRules=ref([])
 const showAddRule=ref(false)
 const newRule=ref({name:'',type:'register',coupon_id:0,give_count:1,product_id:0,category_id:0,min_order_amount:0,enabled:true})
 const edRuleId=ref(0)
-const open=ref({st_basic:true,st_theme:false,lt_basic:true,ev_basic:true,st_email:false,st_sms:false,st_pay:false,st_points:false,st_shop:false,py_alipay:false,py_wxpay:false,py_qqpay:false,py_sqb:false,py_mapay:false,py_usdt:false})
+const open=ref({st_basic:true,st_theme:false,lt_basic:true,ev_basic:true,st_email:false,st_sms:false,st_pay:false,st_points:false,st_shop:false,py_alipay:false,py_wxpay:false,py_mazf:false,py_yishoumi:false,py_usdt:false,py_qqpay:false})
 function toggle(k){open.value[k]=!open.value[k]}
 function toggleAccordion(key){
   // 手风琴效果：只展开当前项，收起其他项
@@ -395,12 +395,11 @@ const st=ref({shop_name:'',title:'',notice:'',keywords:'',description:'',logo:''
 const lt=ref({enabled:true,show_odds:true,anti_cheat:true,price:1,free_daily:0,points_cost:0,points_threshold:0,pool:[],pity_enabled:false,pity_count:100,pity_product_id:0,pity_odds:100})
 const ev=ref({enabled:false,banner_title:'',banner_desc:'',show_progress:true,show_countdown:true})
 const pay=ref({
-  alipay:{enabled:true,app_id:'',private_key:''},
-  wxpay:{enabled:true,mch_id:'',key:''},
+  alipay:{enabled:false,app_id:'',private_key:''},
+  wxpay:{enabled:false,mch_id:'',key:''},
+  mazf:{enabled:false,mch_id:'',key:''},
+  yishoumi:{enabled:false,app_id:'',app_key:'',notify_url:''},
   usdt:{enabled:false,address:''},
-  shouqianba:{enabled:false,mch_id:'',terminal_id:'',key:''},
-  yishoumi:{enabled:false,app_id:'',app_key:'',notify_url:'',return_url:''},
-  maPay:{enabled:false,mch_id:'',key:''},
   qqpay:{enabled:false,mch_id:'',key:''}
 })
 const rechargeRecords=ref([])

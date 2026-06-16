@@ -92,6 +92,8 @@ const app = createApp({
     const pwErr = ref('')
     const rechargeRecords = ref([])
     const rechargeAmt = ref(0)
+    const rechargePayMethod = ref('')
+    const availablePayMethods = ref([])
     const upgradeAmt = ref(0)
     const showUpgrade = ref(false)
     const poolProduct = ref(null)
@@ -125,7 +127,7 @@ const app = createApp({
       {k:'security', l:'安全'}
     ]
 
-    function navigate(name) {
+    function navigate(name, extra) {
       if ((name === 'lottery' || name === 'events') && !token.value) {
         toast('请先登录后参与', 'error')
         page.value = 'login'
@@ -135,15 +137,23 @@ const app = createApp({
       }
       if (name === 'login') isReg.value = false
       page.value = name
-      const path = name === 'home' ? '/' : '/' + name
+      let path = name === 'home' ? '/' : '/' + name
+      if (extra) path += '/' + extra
       history.pushState(null, '', path)
     }
 
     function initRoute() {
       const path = window.location.pathname
-      const route = path === '/' ? 'home' : path.slice(1)
+      const parts = path.split('/').filter(Boolean)
+      const route = parts[0] || 'home'
       if (route === 'login') isReg.value = false
-      page.value = route || 'home'
+      page.value = route
+      if (route === 'detail' && parts[1]) {
+        const pid = parseInt(parts[1])
+        if (pid && !detail.value) {
+          API.getProduct(pid).then(d => { detail.value = d; loadReviews(pid) }).catch(() => {})
+        }
+      }
     }
 
     const filtered = computed(() => {
@@ -271,16 +281,95 @@ const timedProducts = computed(() => eventProducts.value)
       if (!pid) { toast('商品ID错误', 'error'); return }
       detail.value=null; lastOrder.value=null; buyQty.value=1; reviews.value=[]
       try { const d=await API.getProduct(pid); detail.value=d; loadReviews(pid) } catch(e){ toast(e.message,'error') }
-      navigate('detail')
+      navigate('detail', pid)
     }
     async function checkout(product) {
       if(!token.value){ toast('请先登录','error'); navigate('login'); return }
+      const pid = product.id || product.ID
+      if(!pid){ toast('商品ID错误','error'); return }
       try {
-        const pid = product.id || product.ID
-        const d=await API.createOrder(pid, buyQty.value||1, '')
-        lastOrder.value=d.order; toast(d.message||'购买成功！')
-        loadOrders(); loadProducts(); loadProfile()
+        const d = await API.previewOrder(pid, buyQty.value||1, '')
+        payPreview.value = d
+        selectedPayMethod.value = d.payment_methods.length ? d.payment_methods[0].id : 'balance'
+        selectedCouponId.value = null
+        promoCodeInput.value = ''
+        promoMsg.value = ''
+        paySubmitting.value = false
+        showPayModal.value = true
       } catch(e){ toast(e.message,'error') }
+    }
+
+    const showPayModal = ref(false)
+    const payPreview = ref(null)
+    const selectedPayMethod = ref('')
+    const selectedCouponId = ref(null)
+    const promoCodeInput = ref('')
+    const promoMsg = ref('')
+    const promoMsgType = ref('')
+    const paySubmitting = ref(false)
+
+    function selectCoupon(c) {
+      if (selectedCouponId.value === c.id) {
+        selectedCouponId.value = null
+        refreshPreview()
+      } else {
+        selectedCouponId.value = c.id
+        refreshPreview(c.code)
+      }
+    }
+
+    async function applyPromoCode() {
+      if (!promoCodeInput.value) return
+      promoMsg.value = ''
+      await refreshPreview(promoCodeInput.value)
+    }
+
+    async function refreshPreview(couponCode) {
+      try {
+        const pid = payPreview.value ? (detail.value?.product?.id) : null
+        if (!pid) return
+        const code = couponCode || ''
+        const d = await API.previewOrder(pid, buyQty.value||1, code)
+        payPreview.value = d
+        if (code) {
+          if (d.coupon_info && d.coupon_info.valid) {
+            promoMsg.value = '优惠券已生效'
+            promoMsgType.value = 'ok'
+          } else if (d.coupon_info && !d.coupon_info.valid) {
+            promoMsg.value = d.coupon_info.reason || '优惠券不可用'
+            promoMsgType.value = 'err'
+          } else {
+            promoMsg.value = '优惠码无效'
+            promoMsgType.value = 'err'
+          }
+        }
+      } catch(e){ toast(e.message,'error') }
+    }
+
+    async function confirmPay() {
+      if (!selectedPayMethod.value || !payPreview.value) return
+      paySubmitting.value = true
+      try {
+        const pid = detail.value?.product?.id
+        const orderD = await API.createOrder(pid, buyQty.value||1, promoCodeInput.value || '')
+        const order = orderD.order
+        if (selectedPayMethod.value === 'balance') {
+          try {
+            await API.payOrder(order.id, 'balance')
+            toast('支付成功！')
+            lastOrder.value = order
+            showPayModal.value = false
+            loadOrders(); loadProducts(); loadProfile(); loadMyCoupons()
+          } catch(e) {
+            toast('支付失败: ' + e.message, 'error')
+          }
+        } else {
+          toast('订单已创建，请在支付页面完成付款', 'info')
+          showPayModal.value = false
+          loadOrders(); loadProducts(); loadProfile()
+        }
+      } catch(e){ toast(e.message,'error') }
+      paySubmitting.value = false
     }
 
     function saveProduct() {
@@ -349,8 +438,19 @@ const timedProducts = computed(() => eventProducts.value)
     }
     async function doRecharge() {
       if (!rechargeAmt.value || rechargeAmt.value <= 0) return
-      try { await API.request('POST', '/api/recharge', { amount: rechargeAmt.value, method: 'balance' }); toast('充值成功'); rechargeAmt.value = 0; loadUC(); loadRechargeRecords() }
+      if (!rechargePayMethod.value) { toast('请选择支付方式', 'error'); return }
+      try {
+        const result = await API.request('POST', '/api/recharge', { amount: rechargeAmt.value, method: rechargePayMethod.value })
+        toast(result.message || '订单已创建')
+        if (result.pay_url) { toast('请前往支付页面完成付款', 'info') }
+        rechargeAmt.value = 0
+        loadRechargeRecords()
+      }
       catch(e) { toast(e.message, 'error') }
+    }
+    async function loadPayMethods() {
+      try { const d = await API.getPaymentMethods(); availablePayMethods.value = d.methods || []; if (availablePayMethods.value.length && !rechargePayMethod.value) rechargePayMethod.value = availablePayMethods.value[0].id }
+      catch(e) {}
     }
     async function doUpgrade() {
       if (!upgradeAmt.value || upgradeAmt.value <= 0) return
@@ -429,7 +529,7 @@ const timedProducts = computed(() => eventProducts.value)
       if (p === 'featured') loadProducts(1)
       if (p === 'products') { loadProducts(); loadCategories() }
       if (p === 'orders') loadOrders()
-      if (p === 'profile') { loadUC(); loadMyCoupons(); loadUCOrders(); loadRechargeRecords() }
+      if (p === 'profile') { loadUC(); loadMyCoupons(); loadUCOrders(); loadRechargeRecords(); loadPayMethods() }
       if (p === 'admin') { loadAllOrders(); loadCoupons(); loadCategories(); loadProducts(); loadUsers() }
     })
 
@@ -439,12 +539,14 @@ const timedProducts = computed(() => eventProducts.value)
 
     onMounted(() => {
       initRoute()
-      checkSetup()
-      loadConfig()
-      loadProducts()
-      loadCategories()
-      loadProfile()
-      loadCaptcha()
+      if (page.value !== 'detail') {
+        checkSetup()
+        loadConfig()
+        loadProducts()
+        loadCategories()
+        loadProfile()
+        loadCaptcha()
+      }
       initParticles()
       window.addEventListener('scroll', () => { scrolled.value = window.scrollY > 50 })
     })
@@ -535,13 +637,13 @@ const timedProducts = computed(() => eventProducts.value)
       catForm, couponForm, keysInput, keyProductID, claimCode, buyQty,
       filtered, lotteryProducts, timedProducts, countdown,
       ucData, ucTab, ucOrders, orderFilter, orderStatuses, profileForm, pwForm, pwErr, ucTabs,
-      loadUC, loadUCOrders, updateProfile, changePw, doRecharge, rechargeAmt, doUpgrade, showUpgrade, upgradeAmt,
+      loadUC, loadUCOrders, updateProfile, changePw, doRecharge, rechargeAmt, rechargePayMethod, availablePayMethods, loadPayMethods, doUpgrade, showUpgrade, upgradeAmt,
       levelRequirements, nextLevel,
       users, adminMenu, showCouponForm, showCatForm, settings, saveSettings,
       navigate, initSetup, toggleAdminView,
       toast, copy, statusText, formatDate,
       loadProducts, loadCategories, loadOrders, loadAllOrders, loadCoupons, loadConfig,
-      loadProfile, loadMyCoupons, loadCardKeys, loadReviews, loadUsers, loadCaptcha, loadEvents, loadRechargeRecords,
+      loadProfile, loadMyCoupons, loadCardKeys, loadReviews, loadUsers, loadCaptcha, loadEvents, loadRechargeRecords, loadPayMethods,
       rechargeRecords, poolProduct, poolModal, currentPool,
       doLogin, doReg, logout, goProfile, viewProduct, checkout,
       saveProduct, editProduct, deleteProduct, selectProductForKeys, selectProductForPool,
@@ -552,7 +654,10 @@ const timedProducts = computed(() => eventProducts.value)
       checkSetup,
       config,
       showService,
-      eventSettings, eventProducts
+      eventSettings, eventProducts,
+      showPayModal, payPreview, selectedPayMethod, selectedCouponId,
+      promoCodeInput, promoMsg, promoMsgType, paySubmitting,
+      selectCoupon, applyPromoCode, confirmPay
     }
   }
 })

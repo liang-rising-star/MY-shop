@@ -9,6 +9,11 @@ const API = {
     const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined })
     const data = await res.json()
     if (!res.ok) {
+      if (res.status === 401) {
+        try { localStorage.removeItem('token') } catch(e) {}
+        window.location.href = '/login'
+        throw new Error('登录已失效，请重新登录')
+      }
       const err = new Error(data.error || '请求失败')
       err.status = res.status
       err.needLogin = res.status === 401
@@ -53,7 +58,9 @@ const API = {
   getMyCoupons: () => API.request('GET', '/api/coupons/mine'),
 
   // Orders
-  createOrder: (pid, qty, coupon) => API.request('POST', '/api/orders', { product_id: pid, quantity: qty, coupon_code: coupon }),
+  previewOrder: (pid, qty, coupon) => API.request('POST', '/api/orders/preview', { product_id: pid, quantity: qty, coupon_code: coupon || '' }),
+  createOrder: (pid, qty, coupon) => API.request('POST', '/api/orders', { product_id: pid, quantity: qty, coupon_code: coupon || '' }),
+  payOrder: (oid, method) => API.request('POST', '/api/orders/' + oid + '/pay', { method }),
   listOrders: () => API.request('GET', '/api/orders'),
   getOrder: (id) => API.request('GET', '/api/orders/' + id),
   adminListOrders: () => API.request('GET', '/api/admin/orders'),
@@ -71,4 +78,5 @@ const API = {
 
   // Payment
   getRechargeMethods: () => API.request('GET', '/api/recharge/methods'),
+  getPaymentMethods: () => API.request('GET', '/api/payment/methods'),
 }

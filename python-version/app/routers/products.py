@@ -10,39 +10,47 @@ router = APIRouter()
 
 def is_discount_active(product):
     """检查折扣是否有效"""
-    if not product.discount_price or product.discount_price <= 0:
-        return False
-    now = datetime.datetime.utcnow()
-    if product.discount_start and now < product.discount_start:
-        return False
-    if product.discount_end and now > product.discount_end:
-        return False
-    return True
+    mode = getattr(product, 'discount_mode', 'none') or 'none'
+    if mode == 'percent':
+        pct = getattr(product, 'discount_percent', 0) or 0
+        return pct > 0 and pct < 100
+    if mode == 'fixed':
+        dp = product.discount_price
+        if not dp or dp <= 0:
+            return False
+        return dp < product.price
+    return False
 
 def get_display_price(product):
     """获取显示价格（考虑折扣）"""
-    if is_discount_active(product):
-        return product.discount_price
+    mode = getattr(product, 'discount_mode', 'none') or 'none'
+    if mode == 'percent':
+        pct = getattr(product, 'discount_percent', 0) or 0
+        if pct > 0 and pct < 100:
+            return round(product.price * pct / 100, 2)
+    if mode == 'fixed':
+        dp = product.discount_price
+        if dp and dp > 0 and dp < product.price:
+            return dp
     return product.price
 
 def get_original_display_price(product):
     """获取原价显示（有折扣时显示原价）"""
     if is_discount_active(product):
-        return product.original_price if product.original_price else product.price
+        return product.price
     return None
 
 def get_discount_badge(product):
     """获取折扣标签"""
-    if is_discount_active(product):
-        discount_price = product.discount_price
-        original_price = product.original_price if product.original_price else product.price
-        if original_price > 0 and discount_price < original_price:
-            discount = round((1 - discount_price / original_price) * 100)
-            return {
-                "type": "discount",
-                "text": f"{discount}%OFF",
-                "color": "danger"
-            }
+    mode = getattr(product, 'discount_mode', 'none') or 'none'
+    if mode == 'percent':
+        pct = getattr(product, 'discount_percent', 0) or 0
+        if pct > 0 and pct < 100:
+            return {"type": "discount", "text": "限时折扣", "color": "danger"}
+    if mode == 'fixed':
+        dp = product.discount_price
+        if dp and dp > 0 and dp < product.price:
+            return {"type": "discount", "text": "降价", "color": "danger"}
     if product.is_seckill:
         return {"type": "seckill", "text": "秒杀", "color": "danger"}
     if product.is_hot:
@@ -117,6 +125,8 @@ async def create_product(data: dict, request: Request):
             original_price=data.get("original_price"),
             cost_price=data.get("cost_price"),
             discount=data.get("discount",0),
+            discount_mode=data.get("discount_mode","none"),
+            discount_percent=data.get("discount_percent",0),
             discount_price=data.get("discount_price"),
             discount_start=parse_dt(data.get("discount_start")),
             discount_end=parse_dt(data.get("discount_end")),

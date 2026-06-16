@@ -31,6 +31,20 @@ def init_db():
             cur.execute(f"ALTER TABLE users ADD COLUMN {col} {typ}")
     conn.commit()
     conn.close()
+    # Add discount_mode and discount_percent to products table
+    conn = sqlite3.connect(config.DB_PATH)
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(products)")
+    pcols = [row[1] for row in cur.fetchall()]
+    pmissing = {
+        'discount_mode': 'VARCHAR(20) DEFAULT "none"',
+        'discount_percent': 'FLOAT DEFAULT 0',
+    }
+    for col, typ in pmissing.items():
+        if col not in pcols:
+            cur.execute(f"ALTER TABLE products ADD COLUMN {col} {typ}")
+    conn.commit()
+    conn.close()
     from sqlalchemy.orm import Session
     from app.models import User
     with Session(engine) as s:

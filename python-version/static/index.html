@@ -28,7 +28,7 @@
     xhr.send();
   })();
   </script>
-  <link rel="stylesheet" href="/static/css/style.css?v=20260614">
+  <link rel="stylesheet" href="/static/css/style.css?v=202606160200">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/vendor/font-awesome/css/all.min.css">
 </head>
@@ -101,14 +101,19 @@
           <div class="section featured" v-if="products.length">
             <div class="product-grid">
               <div v-for="p in products.slice(0,4)" :key="p.id" class="product-card" @click="viewProduct(p)">
-                <div class="card-badge" v-if="p.type!=='normal'">{{p.type==='blindbox'?'盲盒':'限时'}}</div>
+                <div class="card-badge" v-if="p.badge">{{ p.badge.text }}</div>
+                <div class="card-badge" v-else-if="p.type!=='normal'">{{p.type==='blindbox'?'盲盒':'限时'}}</div>
                 <div class="card-glow"></div>
                 <div class="card-img"><img v-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
                 <div class="card-body">
                   <h3>{{ p.name }}</h3>
                   <span class="card-category">{{ p.category?.name }}</span>
                   <div class="card-footer">
-                    <span class="price">¥{{ p.price.toFixed(2) }}</span>
+                    <span v-if="p.is_discount_active" class="price" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+                      <s style="color:#ff3366">¥{{ p.price.toFixed(2) }}</s>
+                      <span style="color:#00ff88">¥{{ p.display_price.toFixed(2) }}</span>
+                    </span>
+                    <span v-else class="price">¥{{ p.price.toFixed(2) }}</span>
                     <span class="sold">已售 {{ p.total_sold }}</span>
                   </div>
                 </div>
@@ -121,14 +126,19 @@
           <div class="section">
             <div class="product-grid" v-if="products.length">
               <div v-for="p in products" :key="p.id" class="product-card" @click="viewProduct(p)">
-                <div class="card-badge" v-if="p.type!=='normal'">{{p.type==='blindbox'?'🎁盲盒':'⏰限时'}}</div>
+                <div class="card-badge" v-if="p.badge">{{ p.badge.text }}</div>
+                <div class="card-badge" v-else-if="p.type!=='normal'">{{p.type==='blindbox'?'🎁盲盒':'⏰限时'}}</div>
                 <div class="card-glow"></div>
                 <div class="card-img"><img v-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
                 <div class="card-body">
                   <h3>{{ p.name }}</h3>
                   <span class="card-category">{{ p.category?.name }}</span>
                   <div class="card-footer">
-                    <span class="price">¥{{ p.price.toFixed(2) }}</span>
+                    <span v-if="p.is_discount_active" class="price" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+                      <s style="color:#ff3366">¥{{ p.price.toFixed(2) }}</s>
+                      <span style="color:#00ff88">¥{{ p.display_price.toFixed(2) }}</span>
+                    </span>
+                    <span v-else class="price">¥{{ p.price.toFixed(2) }}</span>
                     <span class="sold">已售 {{ p.total_sold || 0 }}</span>
                   </div>
                 </div>
@@ -223,10 +233,17 @@
             </div>
             <div class="product-grid">
               <div v-for="p in filtered" :key="p.id" class="product-card" @click="viewProduct(p)">
-                <div class="card-badge" v-if="p.type!=='normal'">{{p.type==='blindbox'?'🎁盲盒':'⏰限时'}}</div>
+                <div class="card-badge" v-if="p.badge">{{ p.badge.text }}</div>
+                <div class="card-badge" v-else-if="p.type!=='normal'">{{p.type==='blindbox'?'🎁盲盒':'⏰限时'}}</div>
                 <div class="card-glow"></div>
                 <div class="card-img"><img v-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
-                <div class="card-body"><h3>{{ p.name }}</h3><span class="card-category">{{ p.category?.name }}</span><div class="card-footer"><span class="price">¥{{ p.price.toFixed(2) }}</span><span class="sold">库存 {{ p.card_key_count }}</span></div></div>
+                <div class="card-body"><h3>{{ p.name }}</h3><span class="card-category">{{ p.category?.name }}</span><div class="card-footer">
+                    <span v-if="p.is_discount_active" class="price" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+                      <s style="color:#ff3366">¥{{ p.price.toFixed(2) }}</s>
+                      <span style="color:#00ff88">¥{{ p.display_price.toFixed(2) }}</span>
+                  </span>
+                  <span v-else class="price">¥{{ p.price.toFixed(2) }}</span>
+                  <span class="sold">库存 {{ p.card_key_count }}</span></div></div>
               </div>
             </div>
             <div v-if="!filtered.length" class="empty-state"><span class="empty-icon">◈</span><p>没有商品</p></div>
@@ -235,23 +252,60 @@
 
         <section v-if="page==='detail'" key="detail" class="page">
           <div class="section" v-if="detail">
-            <button class="btn-back" @click="navigate('products')">← 返回</button>
+            <button class="btn-back" @click="navigate('products')">← 返回商店</button>
             <div class="detail">
-              <div class="detail-img"><img v-if="detail.product.image_url" :src="detail.product.image_url" :alt="detail.product.name" style="width:100%;height:100%;object-fit:cover;border-radius:8px" @error="$event.target.style.display='none'" /><div v-else class="detail-placeholder">⬡</div></div>
+              <div class="detail-img">
+                <img v-if="detail.product.image_url" :src="detail.product.image_url" :alt="detail.product.name" @error="$event.target.style.display='none'" />
+                <div v-else class="detail-placeholder">⬡</div>
+              </div>
               <div class="detail-info">
-                <h2>{{ detail.product.name }}</h2>
-                <span class="tag" :class="detail.product.type" v-if="detail.product.type!=='normal'">{{detail.product.type==='blindbox'?'🎁 盲盒':'⏰ 限时抢购'}}</span>
-                <span class="tag timed-left" v-if="detail.product.type==='timed' && detail.available===false">{{detail.msg}}</span>
-                <p class="detail-desc">{{ detail.product.description }}</p>
-                <div class="detail-price">¥{{ detail.product.price.toFixed(2) }}</div>
-                <div class="detail-stock">库存: {{ detail.card_key_count }} | 已售: {{ detail.product.total_sold }}</div>
-                <div class="pool-list" v-if="detail.pool?.length"><h4>奖池配置：</h4><div v-for="e in detail.pool" :key="e.id" class="pool-entry"><span>{{ e.prize?.name }}</span><span>{{ e.probability }}%</span></div></div>
-                <div class="reviews-section" v-if="reviews.length"><h4>评价</h4><div v-for="r in reviews" :key="r.ID" class="review-item"><span class="stars">{{ '⭐'.repeat(r.Rating) }}</span><span class="review-user">{{ r.user?.username }}</span><p>{{ r.Content }}</p></div></div>
-                <div class="detail-actions">
-                  <input v-model="buyQty" type="number" min="1" class="input-neon qty-input" />
-                  <button class="btn-glow" @click="checkout(detail.product)" :disabled="!detail.available || detail.card_key_count<=0">立即购买</button>
+                <h2 class="detail-name">{{ detail.product.name }}</h2>
+                <div class="detail-meta">
+                  <span class="tag" :class="detail.product.type" v-if="detail.product.type!=='normal'">{{detail.product.type==='blindbox'?'🎁 盲盒':'⏰ 限时抢购'}}</span>
+                  <span class="tag timed-left" v-if="detail.product.type==='timed' && detail.available===false">{{detail.msg}}</span>
                 </div>
-                <div v-if="lastOrder?.card_keys?.length" class="card-keys-delivered"><h4>✅ 卡密已发放：</h4><div v-for="k in lastOrder.card_keys" :key="k.id" class="card-key-item"><code>{{ k.key }}</code><button class="btn-copy" @click="copy(k.key)">复制</button></div></div>
+                <div class="detail-price-box">
+                  <div class="detail-price" v-if="detail.product.is_discount_active">
+                    <s>¥{{ detail.product.price.toFixed(2) }}</s>
+                    <span>¥{{ detail.product.display_price.toFixed(2) }}</span>
+                  </div>
+                  <div class="detail-price" v-else>¥{{ detail.product.price.toFixed(2) }}</div>
+                  <div class="detail-stock">库存 {{ detail.card_key_count }} · 已售 {{ detail.product.total_sold }}</div>
+                </div>
+                <div class="detail-desc" v-if="detail.product.description">{{ detail.product.description }}</div>
+                <div class="pool-list" v-if="detail.pool?.length">
+                  <h4>奖池配置</h4>
+                  <div v-for="e in detail.pool" :key="e.id" class="pool-entry">
+                    <span>{{ e.prize?.name }}</span><span>{{ e.probability }}%</span>
+                  </div>
+                </div>
+                <div class="detail-buy-area">
+                  <div class="detail-qty-row">
+                    <span class="detail-qty-label">数量</span>
+                    <div class="qty-control">
+                      <button class="qty-btn" @click="buyQty = Math.max(1, buyQty - 1)" :disabled="buyQty <= 1">−</button>
+                      <input v-model.number="buyQty" type="number" min="1" class="input-neon qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1) ? buyQty : 1" />
+                      <button class="qty-btn" @click="buyQty++">+</button>
+                    </div>
+                  </div>
+                  <button class="btn-glow detail-buy-btn" @click="checkout(detail.product)" :disabled="!detail.available || detail.card_key_count<=0">
+                    <i class="fas fa-shopping-cart"></i> 立即购买
+                  </button>
+                </div>
+                <div v-if="lastOrder?.card_keys?.length" class="card-keys-delivered">
+                  <h4>✅ 卡密已发放</h4>
+                  <div v-for="k in lastOrder.card_keys" :key="k.id" class="card-key-item">
+                    <code>{{ k.key }}</code><button class="btn-copy" @click="copy(k.key)">复制</button>
+                  </div>
+                </div>
+                <div class="reviews-section" v-if="reviews.length">
+                  <h4>评价</h4>
+                  <div v-for="r in reviews" :key="r.ID" class="review-item">
+                    <span class="stars">{{ '⭐'.repeat(r.Rating) }}</span>
+                    <span class="review-user">{{ r.user?.username }}</span>
+                    <p>{{ r.Content }}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -477,7 +531,14 @@
               </div>
               <div class="uc-section-title">充值余额</div>
               <div class="uc-profile-form" style="margin:1rem 0">
-                <div class="form-row"><label>充值金额</label><input v-model.number="rechargeAmt" type="number" class="input-neon" placeholder="输入充值金额"/><button class="btn-glow" @click="doRecharge">立即充值</button></div>
+                <div class="form-row"><label>充值金额</label><input v-model.number="rechargeAmt" type="number" class="input-neon" placeholder="输入充值金额" min="1"/></div>
+                <div class="form-row" v-if="availablePayMethods.length"><label>支付方式</label>
+                  <select v-model="rechargePayMethod" class="input-neon" style="width:160px">
+                    <option v-for="m in availablePayMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
+                  </select>
+                </div>
+                <div class="form-row" v-if="!availablePayMethods.length"><span style="color:var(--text-dim)">暂无可用支付方式，请联系管理员</span></div>
+                <button class="btn-glow" @click="doRecharge" :disabled="!selectedPayMethod || !rechargeAmt || rechargeAmt < 1">立即充值</button>
               </div>
               <div class="uc-section-title">充值记录</div>
               <div class="uc-order-list">
@@ -617,6 +678,82 @@
       <i class="fas fa-headset"></i>
     </button>
 
+    <!-- 支付弹窗 -->
+    <div class="modal-overlay" v-if="showPayModal" @click.self="showPayModal=false">
+      <div class="pay-modal">
+        <div class="pay-header">
+          <h3><i class="fas fa-credit-card"></i> 确认订单</h3>
+          <button class="modal-close" @click="showPayModal=false">&times;</button>
+        </div>
+        <div class="pay-body" v-if="payPreview">
+          <div class="pay-product-info">
+            <div class="pay-product-name">{{ payPreview.product_name }}</div>
+            <div class="pay-qty">x{{ payPreview.quantity }}</div>
+          </div>
+          <div class="pay-price-section">
+            <div class="pay-price-row"><span>商品原价</span><span class="pay-original">¥{{ payPreview.original_total.toFixed(2) }}</span></div>
+            <div class="pay-price-row" v-if="payPreview.product_discount > 0"><span>折扣优惠</span><span class="pay-discount">-¥{{ payPreview.product_discount.toFixed(2) }}</span></div>
+            <div class="pay-price-row" v-if="payPreview.member_discount > 0"><span>会员优惠</span><span class="pay-discount">-¥{{ payPreview.member_discount.toFixed(2) }}</span></div>
+            <div class="pay-price-row" v-if="payPreview.coupon_discount > 0"><span>优惠券抵扣</span><span class="pay-discount">-¥{{ payPreview.coupon_discount.toFixed(2) }}</span></div>
+            <div class="pay-price-total"><span>应付金额</span><span class="pay-final">¥{{ payPreview.final_price.toFixed(2) }}</span></div>
+          </div>
+          <div class="pay-section" v-if="payPreview.user_coupons.length">
+            <div class="pay-section-title">可用优惠券</div>
+            <div class="pay-coupon-list">
+              <div v-for="c in payPreview.user_coupons" :key="c.uc_id" class="pay-coupon-item" :class="{selected: selectedCouponId===c.id && c.valid, disabled: !c.valid}" @click="c.valid && selectCoupon(c)">
+                <div class="pay-coupon-left">
+                  <span class="pay-coupon-val" v-if="c.type==='percentage'">{{ c.value }}%</span>
+                  <span class="pay-coupon-val" v-else>¥{{ c.value }}</span>
+                  <span class="pay-coupon-name">{{ c.name || c.code }}</span>
+                </div>
+                <div class="pay-coupon-right">
+                  <span v-if="!c.valid" class="pay-coupon-reason">{{ c.reason }}</span>
+                  <span v-else-if="selectedCouponId===c.id" class="pay-coupon-check">✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pay-section">
+            <div class="pay-section-title">优惠码</div>
+            <div class="pay-promo-row">
+              <input v-model="promoCodeInput" placeholder="输入优惠码" class="input-neon" style="flex:1" @input="promoCodeInput=promoCodeInput.toUpperCase()" />
+              <button class="btn-glow" @click="applyPromoCode" style="padding:0.5rem 1rem;font-size:0.85rem">使用</button>
+            </div>
+            <div v-if="promoMsg" :class="promoMsgType==='ok'?'pay-promo-ok':'pay-promo-err'" style="font-size:0.8rem;margin-top:0.3rem">{{ promoMsg }}</div>
+          </div>
+          <div class="pay-section">
+            <div class="pay-section-title">选择支付方式</div>
+            <div class="pay-method-list">
+              <div v-for="m in payPreview.payment_methods" :key="m.id" class="pay-method-item" :class="{selected: selectedPayMethod===m.id}" @click="selectedPayMethod=m.id">
+                <span class="pay-method-icon">
+                  <i v-if="m.id==='alipay'" class="fab fa-alipay" style="color:#1677ff"></i>
+                  <i v-else-if="m.id==='wxpay'" class="fab fa-weixin" style="color:#07c160"></i>
+                  <i v-else-if="m.id==='qqpay'" class="fab fa-qq" style="color:#12b7f5"></i>
+                  <i v-else-if="m.id==='mazf'" class="fas fa-qrcode" style="color:#ffaa00"></i>
+                  <i v-else-if="m.id==='yishoumi'" class="fas fa-mobile-alt" style="color:#4caf50"></i>
+                  <i v-else-if="m.id==='usdt'" class="fab fa-bitcoin" style="color:#f7931a"></i>
+                  <i v-else class="fas fa-credit-card" style="color:var(--text-dim)"></i>
+                </span>
+                <span class="pay-method-name">{{ m.name }}</span>
+                <span v-if="selectedPayMethod===m.id" class="pay-method-check">✓</span>
+              </div>
+              <div class="pay-method-item" :class="{selected: selectedPayMethod==='balance'}" @click="selectedPayMethod='balance'">
+                <span class="pay-method-icon"><i class="fas fa-wallet" style="color:var(--neon-green)"></i></span>
+                <span class="pay-method-name">余额支付 (¥{{ (payPreview.user_balance||0).toFixed(2) }})</span>
+                <span v-if="selectedPayMethod==='balance'" class="pay-method-check">✓</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pay-footer">
+          <button class="btn-glow pay-submit" :disabled="!selectedPayMethod || paySubmitting" @click="confirmPay">
+            <span v-if="!paySubmitting">确认支付 ¥{{ payPreview ? payPreview.final_price.toFixed(2) : '0.00' }}</span>
+            <span v-else>处理中...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast-container">
       <transition-group name="toast">
         <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">{{ t.message }}</div>
@@ -625,7 +762,7 @@
   </div>
 
   <script src="/static/js/vue.min.js" defer></script>
-  <script src="/static/js/api.js?v=20250115" defer></script>
-  <script src="/static/js/app.js?v=20260614" defer></script>
+  <script src="/static/js/api.js?v=202606160100" defer></script>
+  <script src="/static/js/app.js?v=202606160100" defer></script>
 </body>
 </html>

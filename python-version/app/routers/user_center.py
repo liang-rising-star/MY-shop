@@ -41,21 +41,22 @@ async def create_recharge(data: dict, request: Request):
         s.add(recharge)
         s.commit()
         
-        if method == "balance":
-            u = s.query(User).filter(User.id == uid).first()
-            u.balance = (u.balance or 0) + amount
-            recharge.status = "completed"
-            recharge.paid_at = datetime.datetime.utcnow()
-            s.commit()
-            return {"message": "充值成功", "recharge_order_no": order_no, "balance": u.balance}
+        from app.routers.payment import get_payment_config, get_available_payment_methods
+        
+        # 获取可用支付方式
+        methods_resp = await get_available_payment_methods()
+        available_methods = [m["id"] for m in methods_resp.get("methods", [])]
+        
+        if method not in available_methods:
+            raise HTTPException(400, f"支付方式 {method} 未启用")
         
         return {
-            "message": "订单已创建，请在支付前确保金额正确",
+            "message": "订单已创建，请完成支付",
             "recharge_order_no": order_no,
+            "order_id": recharge.id,
             "amount": amount,
             "method": method,
-            "pay_url": f"/pay/{order_no}",
-            "warning": "注意：当前为演示模式，支付未接入真实支付通道"
+            "pay_url": f"/pay/{order_no}"
         }
 
 @router.post("/api/recharge/confirm")

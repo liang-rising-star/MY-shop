@@ -3,8 +3,9 @@ from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from app.database import engine
-from app.models import Product, CardKey, BlindBoxPool, Coupon, Order, User, AppSetting, MemberLevel, Bill, AdminLog, PaymentLog
+from app.models import Product, CardKey, BlindBoxPool, Coupon, Order, User, AppSetting, MemberLevel, Bill, AdminLog, PaymentLog, UserCoupon
 from app.auth import get_current_user, require_admin
+from app.routers.products import get_display_price
 
 router = APIRouter()
 
@@ -62,6 +63,96 @@ def generate_order_no():
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
     random_str = str(uuid.uuid4().hex[:6]).upper()
     return f"ORD{timestamp}{random_str}"
+
+@router.post("/api/orders/preview")
+async def preview_order(data: dict, request: Request):
+    """订单价格预览 - 计算折扣和优惠"""
+    await get_current_user(request)
+    uid = request.state.user_id
+    pid = data["product_id"]
+    qty = data.get("quantity", 1)
+    if qty <= 0: qty = 1
+
+    with Session(engine) as s:
+        p = s.query(Product).filter(Product.id == pid).first()
+        if not p: raise HTTPException(404, "商品不存在")
+
+        original_total = p.price * qty
+        display_price = get_display_price(p)
+        product_discount_total = display_price * qty if display_price != p.price else 0
+        product_discount = original_total - product_discount_total if product_discount_total > 0 else 0
+
+        member_discount = 0.0
+        member_discount_rate = get_member_discount(uid, s)
+        subtotal = product_discount_total if product_discount_total > 0 else original_total
+        if member_discount_rate < 1.0:
+            member_discount = subtotal * (1 - member_discount_rate)
+
+        after_member = subtotal - member_discount
+
+        coupon_discount = 0.0
+        coupon_info = None
+        if data.get("coupon_code"):
+            c = s.query(Coupon).filter(Coupon.code == data["coupon_code"]).first()
+            if c:
+                valid = True
+                reason = ""
+                if c.expires_at and c.expires_at.replace(tzinfo=None) < datetime.datetime.utcnow():
+                    valid = False; reason = "已过期"
+                elif c.max_uses > 0 and c.used_count >= c.max_uses:
+                    valid = False; reason = "已用完"
+                elif after_member < c.min_amount:
+                    valid = False; reason = f"需满¥{c.min_amount:.0f}"
+                if valid:
+                    coupon_discount = after_member * c.value / 100 if c.type == "percentage" else min(c.value, after_member)
+                coupon_info = {"id": c.id, "code": c.code, "name": c.name, "type": c.type, "value": c.value, "min_amount": c.min_amount, "valid": valid, "reason": reason}
+
+        final_price = max(0, round(after_member - coupon_discount, 2))
+
+        from app.routers.payment import get_payment_config
+        config = get_payment_config()
+        methods = []
+        if config.get("pay_alipay") == "True": methods.append({"id": "alipay", "name": "支付宝"})
+        if config.get("pay_wx") == "True": methods.append({"id": "wxpay", "name": "微信支付"})
+        if config.get("pay_qq") == "True": methods.append({"id": "qqpay", "name": "QQ钱包"})
+        if config.get("pay_mazf") == "True": methods.append({"id": "mazf", "name": "码支付"})
+        if config.get("pay_yishoumi") == "True": methods.append({"id": "yishoumi", "name": "易收米"})
+        if config.get("pay_usdt") == "True": methods.append({"id": "usdt", "name": "USDT"})
+        user_coupons = s.query(UserCoupon).filter(UserCoupon.user_id == uid, UserCoupon.used_at == None).all()
+        all_coupons = []
+        for uc in user_coupons:
+            c = s.query(Coupon).filter(Coupon.id == uc.coupon_id).first()
+            if not c: continue
+            valid = True
+            reason = ""
+            if c.expires_at and c.expires_at.replace(tzinfo=None) < datetime.datetime.utcnow():
+                valid = False; reason = "已过期"
+            elif c.max_uses > 0 and c.used_count >= c.max_uses:
+                valid = False; reason = "已用完"
+            elif after_member < c.min_amount:
+                valid = False; reason = f"需满¥{c.min_amount:.0f}"
+            all_coupons.append({
+                "id": c.id, "code": c.code, "name": c.name, "type": c.type,
+                "value": c.value, "min_amount": c.min_amount,
+                "valid": valid, "reason": reason,
+                "uc_id": uc.id
+            })
+
+        return {
+            "product_name": p.name,
+            "quantity": qty,
+            "original_price": p.price,
+            "display_price": display_price,
+            "original_total": original_total,
+            "product_discount": product_discount,
+            "member_discount": member_discount,
+            "coupon_discount": coupon_discount,
+            "coupon_info": coupon_info,
+            "final_price": final_price,
+            "payment_methods": methods,
+            "user_coupons": all_coupons,
+            "user_balance": (s.query(User).filter(User.id == uid).first().balance or 0)
+        }
 
 @router.post("/api/orders")
 async def create_order(data: dict, request: Request):

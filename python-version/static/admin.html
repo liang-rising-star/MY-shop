@@ -411,11 +411,48 @@ input:checked + .slider:before{transform:translateX(20px)}
           <div class="fc" style="margin-top:1rem">
             <p style="margin-bottom:0.5rem;font-size:0.85rem;color:var(--dim)">当前商品ID: {{ kp }}，请在下方输入卡密（每行一个）</p>
             <textarea v-model="kt" placeholder="每行一个卡密&#10;例如:&#10;ABCD-1234-EFGH-5678&#10;IJKL-9012-MNOP-3456" style="min-height:120px"></textarea>
-            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center">
               <button class="btn btn-p btn-sm" @click="imK"><i class="fas fa-upload"></i> 批量导入</button>
+              <span v-if="kt.trim()" style="font-size:0.8rem;color:var(--dim)">将导入 {{ kt.trim().split('\n').filter(l=>l.trim()).length }} 条卡密</span>
             </div>
           </div>
-          <div class="tw mt05" v-if="ks.length"><table><thead><tr><th>卡密</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="k in ks" :key="k.id"><td style="font-family:monospace;color:var(--success)">{{ k.key }}</td><td><span class="bg" :class="k.status">{{ k.status==='sold'?'已售出':'可用' }}</span></td><td><button class="btn btn-sm btn-dr" @click="dlK(k)" :disabled="k.status==='sold'" title="删除"><i class="fas fa-trash"></i></button></td></tr></tbody></table></div>
+          <div v-if="ks.length" style="margin-top:1rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;gap:1rem;font-size:0.85rem">
+                <span>共 <strong style="color:var(--primary)">{{ ks.length }}</strong> 条</span>
+                <span>可用 <strong style="color:var(--success)">{{ ks.filter(k=>k.status!=='sold').length }}</strong> 条</span>
+                <span>已售 <strong style="color:var(--danger)">{{ ks.filter(k=>k.status==='sold').length }}</strong> 条</span>
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer">
+                  <input type="checkbox" :checked="ks.filter(k=>k.status!=='sold').length>0 && selectedKeys.length===ks.filter(k=>k.status!=='sold').length" @change="toggleSelectAllFn" style="cursor:pointer;width:18px;height:18px" />
+                  全选可用
+                </label>
+                <button v-if="selectedKeys.length>0" class="btn btn-dr btn-sm" @click="batchDeleteKeys"><i class="fas fa-trash"></i> 批量删除 ({{ selectedKeys.length }})</button>
+                <button class="btn btn-a btn-sm" @click="loadCardKeys(kp)"><i class="fas fa-sync"></i> 刷新</button>
+              </div>
+            </div>
+            <div class="tw">
+              <table>
+                <thead><tr>
+                  <th style="width:40px"></th>
+                  <th style="text-align:left">卡密</th>
+                  <th style="width:80px">状态</th>
+                  <th style="width:80px;text-align:left">操作</th>
+                </tr></thead>
+                <tbody><tr v-for="k in ks" :key="k.id" :style="k.status==='sold'?'opacity:0.5':''">
+                  <td><input type="checkbox" :value="k.id" v-model="selectedKeys" :disabled="k.status==='sold'" style="cursor:pointer;width:18px;height:18px" /></td>
+                  <td style="text-align:left;font-family:monospace;color:var(--success)">{{ k.key }}</td>
+                  <td><span class="bg" :class="k.status==='sold'?'bad':'done'">{{ k.status==='sold'?'已售出':'可用' }}</span></td>
+                  <td style="text-align:left"><button class="btn btn-sm btn-dr" @click="dlK(k)" :disabled="k.status==='sold'" title="删除"><i class="fas fa-trash"></i></button></td>
+                </tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div v-if="!ks.length" style="text-align:center;color:var(--dim);padding:2rem 0">
+            <i class="fas fa-inbox" style="font-size:2rem;margin-bottom:0.5rem;display:block"></i>
+            <p>暂无卡密，请在上方输入卡密后导入</p>
+          </div>
         </div>
         <div v-else style="text-align:center;color:var(--dim);padding:2rem 0">
           <i class="fas fa-key" style="font-size:2rem;margin-bottom:0.5rem;display:block"></i>
@@ -660,9 +697,54 @@ input:checked + .slider:before{transform:translateX(20px)}
       <div class="bh"><h3><i class="fas fa-credit-card"></i> 支付配置</h3></div>
       <div class="bd">
         <div class="fc">
-          <div class="fr"><div class="sw"><label>支付宝</label><div class="toggle" :class="{on:pay.alipay}" @click="pay.alipay=!pay.alipay"></div></div>
-            <div class="sw"><label>微信支付</label><div class="toggle" :class="{on:pay.wxpay}" @click="pay.wxpay=!pay.wxpay"></div></div>
-            <div class="sw"><label>QQ钱包</label><div class="toggle" :class="{on:pay.qqpay}" @click="pay.qqpay=!pay.qqpay"></div></div></div>
+          <div class="bh" @click="toggle('py_alipay')"><h3><i class="fab fa-alipay" style="color:#1677ff"></i> 支付宝</h3><span class="chevron" :class="{rot:open.py_alipay}">▶</span></div>
+          <div class="bd" :class="{collapsed:!open.py_alipay}">
+            <div class="sw"><label>启用支付宝</label><div class="toggle" :class="{on:pay.alipay.enabled}" @click="pay.alipay.enabled=!pay.alipay.enabled"></div></div>
+            <div class="fr" v-if="pay.alipay.enabled">
+              <div class="fg"><label>商户ID (app_id)</label><input v-model="pay.alipay.app_id" placeholder="商户应用ID" /></div>
+              <div class="fg"><label>应用私钥 (private_key)</label><textarea v-model="pay.alipay.private_key" placeholder="支付宝应用私钥" rows="3"></textarea></div>
+            </div>
+          </div>
+          <div class="bh" @click="toggle('py_wxpay')"><h3><i class="fab fa-weixin" style="color:#07c160"></i> 微信支付</h3><span class="chevron" :class="{rot:open.py_wxpay}">▶</span></div>
+          <div class="bd" :class="{collapsed:!open.py_wxpay}">
+            <div class="sw"><label>启用微信支付</label><div class="toggle" :class="{on:pay.wxpay.enabled}" @click="pay.wxpay.enabled=!pay.wxpay.enabled"></div></div>
+            <div class="fr" v-if="pay.wxpay.enabled">
+              <div class="fg"><label>商户号 (mch_id)</label><input v-model="pay.wxpay.mch_id" placeholder="微信商户号" /></div>
+              <div class="fg"><label>商户密钥 (key)</label><input v-model="pay.wxpay.key" type="password" placeholder="微信商户密钥" /></div>
+            </div>
+          </div>
+          <div class="bh" @click="toggle('py_mazf')"><h3><i class="fas fa-qrcode" style="color:#ffaa00"></i> 码支付 (MaZF)</h3><span class="chevron" :class="{rot:open.py_mazf}">▶</span></div>
+          <div class="bd" :class="{collapsed:!open.py_mazf}">
+            <div class="sw"><label>启用码支付</label><div class="toggle" :class="{on:pay.mazf.enabled}" @click="pay.mazf.enabled=!pay.mazf.enabled"></div></div>
+            <div class="fr" v-if="pay.mazf.enabled">
+              <div class="fg"><label>商户ID (mch_id)</label><input v-model="pay.mazf.mch_id" placeholder="商户ID" /></div>
+              <div class="fg"><label>商户密钥 (key)</label><input v-model="pay.mazf.key" type="password" placeholder="商户密钥" /></div>
+            </div>
+          </div>
+          <div class="bh" @click="toggle('py_yishoumi')"><h3><i class="fas fa-mobile-alt" style="color:#4caf50"></i> 易收米 (YiShouMi)</h3><span class="chevron" :class="{rot:open.py_yishoumi}">▶</span></div>
+          <div class="bd" :class="{collapsed:!open.py_yishoumi}">
+            <div class="sw"><label>启用易收米</label><div class="toggle" :class="{on:pay.yishoumi.enabled}" @click="pay.yishoumi.enabled=!pay.yishoumi.enabled"></div></div>
+            <div class="fr" v-if="pay.yishoumi.enabled">
+              <div class="fg"><label>应用ID (app_id)</label><input v-model="pay.yishoumi.app_id" placeholder="应用ID" /></div>
+              <div class="fg"><label>应用密钥 (app_key)</label><input v-model="pay.yishoumi.app_key" type="password" placeholder="应用密钥" /></div>
+            </div>
+            <div class="fg" v-if="pay.yishoumi.enabled"><label>回调通知URL (notify_url)</label><input v-model="pay.yishoumi.notify_url" placeholder="https://your-domain.com/api/payment/notify/yishoumi" /></div>
+          </div>
+          <div class="bh" @click="toggle('py_usdt')"><h3><i class="fab fa-bitcoin" style="color:#f7931a"></i> USDT</h3><span class="chevron" :class="{rot:open.py_usdt}">▶</span></div>
+          <div class="bd" :class="{collapsed:!open.py_usdt}">
+            <div class="sw"><label>启用USDT</label><div class="toggle" :class="{on:pay.usdt.enabled}" @click="pay.usdt.enabled=!pay.usdt.enabled"></div></div>
+            <div class="fr" v-if="pay.usdt.enabled">
+              <div class="fg"><label>收款钱包地址</label><input v-model="pay.usdt.address" placeholder="TRC20钱包地址" /></div>
+            </div>
+          </div>
+          <div class="bh" @click="toggle('py_qqpay')"><h3><i class="fab fa-qq" style="color:#12b7f5"></i> QQ钱包</h3><span class="chevron" :class="{rot:open.py_qqpay}">▶</span></div>
+          <div class="bd" :class="{collapsed:!open.py_qqpay}">
+            <div class="sw"><label>启用QQ钱包</label><div class="toggle" :class="{on:pay.qqpay.enabled}" @click="pay.qqpay.enabled=!pay.qqpay.enabled"></div></div>
+            <div class="fr" v-if="pay.qqpay.enabled">
+              <div class="fg"><label>商户号 (mch_id)</label><input v-model="pay.qqpay.mch_id" placeholder="QQ商户号" /></div>
+              <div class="fg"><label>商户密钥 (key)</label><input v-model="pay.qqpay.key" type="password" placeholder="QQ商户密钥" /></div>
+            </div>
+          </div>
           <div style="margin-top:1rem"><button class="btn btn-p" @click="savePay"><i class="fas fa-save"></i> 保存设置</button></div>
         </div>
         <h4 style="margin:1rem 0 0.5rem;color:var(--primary);font-size:0.85rem">充值记录</h4>
@@ -725,7 +807,11 @@ input:checked + .slider:before{transform:translateX(20px)}
         <div class="bh" @click="toggleAccordion('st_pay')"><h3>支付与交易</h3><span class="chevron" :class="{rot:open.st_pay}">▶</span></div>
         <div class="bd" :class="{collapsed:!open.st_pay}">
           <div class="form-grid">
+            <div class="fg"><label>登录状态有效时长(秒)</label><input v-model.number="st.session_expire" type="number" /></div>
+            <div class="fg"><label>管理员会话时长(分钟)</label><input v-model.number="st.admin_session_expire" type="number" /></div>
             <div class="fg"><label>订单超时(分钟)</label><input v-model.number="st.order_timeout" type="number" /></div>
+          </div>
+          <div class="form-grid">
             <div class="fg"><label>自动收货天数</label><input v-model.number="st.auto_receive_days" type="number" /></div>
             <div class="fg"><label>积分倍率</label><input v-model.number="st.points_per_yuan" type="number" step="0.1" /></div>
           </div>
@@ -965,23 +1051,30 @@ input:checked + .slider:before{transform:translateX(20px)}
         <h3><i class="fas fa-info-circle"></i> 基本信息</h3>
         <div class="form-grid">
           <div class="fg"><label>商品名称 *</label><input v-model="productForm.name" placeholder="输入商品名称" /></div>
-          <div class="fg"><label>短描述</label><input v-model="productForm.short_description" placeholder="简短描述" /></div>
-          <div class="fg"><label>商品价格 *</label><input v-model.number="productForm.price" type="number" step="0.01" placeholder="0.00" /></div>
-          <div class="fg"><label>原价(划线价)</label><input v-model.number="productForm.original_price" type="number" step="0.01" placeholder="不填则使用现价" /></div>
-          <div class="fg"><label>商品分类</label><select v-model="productForm.category_id"><option :value="0">无分类</option><option v-for="c in ct" :key="c.id" :value="c.id">{{ c.name }}</option></select></div>
-          <div class="fg"><label>商品类型</label><select v-model="productForm.type"><option value="normal">普通商品</option><option value="blindbox">盲盒</option></select></div>
+          <div class="fg"><label>商品价格 * <span v-if="productForm.price!==undefined&&productForm.price!==null&&productForm.price!==''&&isNaN(Number(productForm.price))" style="color:var(--danger);font-size:0.75rem">请输入数字</span></label><input v-model="productForm.price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         </div>
-        <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">商品详细描述</label><textarea v-model="productForm.description" placeholder="输入商品详细描述..." style="min-height:100px"></textarea></div>
-        <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">商品详情页内容</label><textarea v-model="productForm.content" placeholder="支持HTML富文本内容..." style="min-height:120px"></textarea></div>
+        <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">描述</label><textarea v-model="productForm.description" placeholder="输入商品描述..." style="min-height:80px"></textarea></div>
+        <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">长描述</label><textarea v-model="productForm.content" placeholder="支持HTML富文本内容..." style="min-height:120px"></textarea></div>
       </div>
       
       <div class="form-section">
-        <h3><i class="fas fa-tag"></i> 折扣与定价</h3>
-        <div class="form-grid">
-          <div class="fg"><label>折扣价(临时)</label><input v-model.number="productForm.discount_price" type="number" step="0.01" placeholder="限时折扣价" /></div>
-          <div class="fg"><label>折扣开始</label><input v-model="productForm.discount_start" type="datetime-local" /></div>
-          <div class="fg"><label>折扣结束</label><input v-model="productForm.discount_end" type="datetime-local" /></div>
-          <div class="fg"><label>成本价(不显示)</label><input v-model.number="productForm.cost_price" type="number" step="0.01" placeholder="用于利润计算" /></div>
+        <h3><i class="fas fa-tag"></i> 定价与折扣</h3>
+        <div style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center">
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='percent'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
+            <input type="radio" value="percent" v-model="productForm.discount_mode" style="accent-color:var(--primary)" /> 限时折扣
+          </label>
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='fixed'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
+            <input type="radio" value="fixed" v-model="productForm.discount_mode" style="accent-color:var(--primary)" /> 降价
+          </label>
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='none'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
+            <input type="radio" value="none" v-model="productForm.discount_mode" style="accent-color:var(--primary)" /> 不打折
+          </label>
+        </div>
+        <div v-if="productForm.discount_mode==='percent'" class="form-grid">
+          <div class="fg"><label>折扣（如80为8折）</label><input v-model.number="productForm.discount_percent" type="number" min="0" max="100" step="1" placeholder="0" /></div>
+        </div>
+        <div v-if="productForm.discount_mode==='fixed'" class="form-grid">
+          <div class="fg"><label>降价后价格（元）</label><input v-model.number="productForm.discount_price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         </div>
       </div>
       
@@ -1421,44 +1514,32 @@ async function changeTheme(theme){
 }
 const ps=ref([]),or=ref([]),us=ref([]),cs=ref([]),ct=ref([]),ks=ref([]),da=ref({})
 const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'})
-const showProductModal=ref(false),editingProduct=ref(null)
-const productForm=ref({
-  name:'',short_description:'',description:'',content:'',
-  price:0,original_price:null,cost_price:null,discount:0,
-  discount_price:null,discount_start:'',discount_end:'',
-  category_id:0,image_url:'',images:'',video_url:'',
-  imageList:[],
-  featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,
-  type:'normal',stock:-1,stock_warning:10,max_buy_limit:0,per_user_limit:0,
-  delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',
-  is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',
-  tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true
-})
-const refreshingStock=ref(false),stockUpdateTime=ref({}),stockPollInterval=ref(null)
-const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),quickGenerateCount=ref(100)
+const selectedKeys=ref([])
+const showProductModal=ref(false),editingProduct=ref(null),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
 const productFiles=ref([])
-const imageFileInput=ref(null)
-const recommends=ref([])
-const showAddProductModal=ref(false),currentRecommendCategory=ref(null)
-const eventProducts=ref([]),showEventProductModal=ref(false),editingEventProduct=ref(null)
-const eventProductForm=ref({
-  name:'',description:'',price:0,original_price:null,discount_price:null,
-  start_at:'',end_at:'',image_url:'',imageList:[],sort_order:0,stock:-1,is_active:true
-})
-const eventImageFileInput=ref(null)
-function openProductModal(p=null){
-  productFiles.value=[];
+const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),quickGenerateCount=ref(100)
+const refreshingStock=ref(false),stockUpdateTime=ref({}),stockPollInterval=ref(null)
+const recommends=ref([]),currentRecommendCategory=ref(null),showAddProductModal=ref(false)
+const imageFileInput=ref(null),eventImageFileInput=ref(null)
+const eventProducts=ref([]),showEventProductModal=ref(false),editingEventProduct=ref(null),eventProductForm=ref({name:'',price:0,original_price:null,discount_price:null,description:'',start_at:'',end_at:'',imageList:[],sort_order:0,stock:-1,is_active:true})
+function toggleSelectAllFn(){
+  const available=ks.value.filter(k=>k.status!=='sold').map(k=>k.id)
+  if(selectedKeys.value.length===available.length){selectedKeys.value=[]}
+  else{selectedKeys.value=[...available]}
+}
+async function batchDeleteKeys(){
+  if(!selectedKeys.value.length)return
+  if(!confirm(`确定删除选中的 ${selectedKeys.value.length} 条卡密？`))return
+  try{const d=await api.rq('POST','/api/admin/cardkeys/batch-delete',{ids:selectedKeys.value});tst(d.message,'ok');selectedKeys.value=[];loadCardKeys(kp.value)}catch(e){tst(e.message,'er')}
+}
+function openProductModal(p){
   if(p){
     editingProduct.value=p.id;
-    const urls=[];
-    if(p.image_url)urls.push(p.image_url);
-    if(p.images){
-      const more=(typeof p.images==='string'?p.images.split(','):p.images).filter(u=>u.trim());
-      more.forEach(u=>{if(!urls.includes(u))urls.push(u)});
-    }
+    const urls=p.images?p.images.split(',').filter(u=>u.trim()):(p.image_url?[p.image_url]:[]);
     productForm.value={
       name:p.name||'',short_description:p.short_description||'',description:p.description||'',content:p.content||'',
       price:p.price||0,original_price:p.original_price,cost_price:p.cost_price,discount:p.discount||0,
+      discount_mode:p.discount_mode||(p.discount_price?'fixed':(p.discount_percent?'percent':'none')),discount_percent:p.discount_percent||0,
       discount_price:p.discount_price,discount_start:p.discount_start||'',discount_end:p.discount_end||'',
       category_id:p.category_id||0,image_url:p.image_url||'',images:p.images||'',video_url:p.video_url||'',
       imageList:urls,
@@ -1474,7 +1555,7 @@ function openProductModal(p=null){
     productForm.value={
       name:'',short_description:'',description:'',content:'',
       price:0,original_price:null,cost_price:null,discount:0,
-      discount_price:null,discount_start:'',discount_end:'',
+      discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',
       category_id:0,image_url:'',images:'',video_url:'',
       imageList:[],
       featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,
@@ -1622,11 +1703,11 @@ async function loadRecommends(){
   }catch(e){console.error(e);}
 }
 function closeProductModal(){showProductModal.value=false;editingProduct.value=null}
-function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price<=0){tst('请输入有效的价格','er');return}d.image_url=d.imageList[0]||'';d.images=d.imageList.join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
+function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);d.image_url=d.imageList[0]||'';d.images=d.imageList.join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
 function deleteProduct(){if(!editingProduct.value)return;if(!confirm('确定删除此商品？此操作不可恢复！'))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
-function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;if(available===0)return'empty';if(available<=5)return'low';if(available<=total*0.3)return'medium';return'high'}
-function getStockStatus(p){const available=p.available_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(available<=warning)return'low';return'available'}
-function getStockText(p){const available=p.available_stock||0;if(available===0)return'已售罄';const warning=p.stock_warning||10;if(available<=warning)return'库存紧张';return'有货'}
+function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;if(total===0||available===0)return'empty';const pct=available/total;if(pct<0.2)return'low';return'high'}
+function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;if(total===0||available===0)return'empty';const pct=available/total;if(pct<0.2)return'low';return'available'}
+function getStockText(p){const available=p.available_stock||0;const total=p.total_stock||0;if(total===0||available===0)return'已售罄';const pct=available/total;if(pct<0.2)return'库存紧张';return'有货'}
 function refreshAllStocks(){if(refreshingStock.value)return;refreshingStock.value=true;api.rq('GET','/api/products').then(r=>{const oldStocks={};ps.value.forEach(p=>oldStocks[p.id]=p.available_stock);ps.value=r.products||[];ps.value.forEach(p=>{if(oldStocks[p.id]!==undefined&&oldStocks[p.id]!==p.available_stock){stockUpdateTime.value[p.id]=Date.now();setTimeout(()=>{delete stockUpdateTime.value[p.id]},1000)}});refreshingStock.value=false}).catch(()=>{refreshingStock.value=false})}
 function startStockPolling(){if(stockPollInterval.value)return;stockPollInterval.value=setInterval(()=>{if(tb.value==='pd'&&!showProductModal.value&&!showRestockModal.value){refreshAllStocks()}},5000)}
 function stopStockPolling(){if(stockPollInterval.value){clearInterval(stockPollInterval.value);stockPollInterval.value=null}}
@@ -1791,16 +1872,18 @@ const appLoadEl=null
 // 延迟加载数据，让界面先渲染
 setTimeout(() => ld(), 200)
 watch(()=>tb.value,(newVal)=>{localStorage.setItem('admin_tb',newVal);if(newVal==='pd'){startStockPolling()}else{stopStockPolling()}if(newVal==='lg'){loadLogs()}})
+watch(()=>kp.value,(newVal)=>{if(newVal&&tb.value==='ke')loadCardKeys(newVal)})
 const stockUpdateWatcher=computed(()=>JSON.stringify(stockUpdateTime.value))
 function svPd(){const d=pf.value;if(!d.name||!d.price){tst('请填写完整','er');return}
   const fn=eid.value?api.rq('PUT','/api/admin/products/'+eid.value,d):api.rq('POST','/api/admin/products',d)
   fn.then(()=>{spf.value=false;eid.value=0;pf.value={name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'};api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已保存','ok')}).catch(e=>tst(e.message,'er'))}
 function edPd(p){eid.value=p.id;pf.value={name:p.name,description:p.description||'',price:p.price,category_id:p.category_id,type:p.type,delivery_type:p.delivery_type||'card_key'};spf.value=true}
 function dlPd(id){if(!confirm('确定删除？'))return;api.rq('DELETE','/api/admin/products/'+id).then(()=>{api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
-function sk(p){kp.value=p.id;tb.value='ke';api.rq('GET','/api/admin/cardkeys?product_id='+p.id).then(d=>ks.value=d)}
+function sk(p){kp.value=p.id;tb.value='ke';selectedKeys.value=[];loadCardKeys(p.id)}
 function sp(p){const e=prompt('奖池(商品ID:概率%)每行:\n2:50\n3:30');if(!e)return;api.rq('PUT','/api/admin/products/'+p.id+'/blindbox',{entries:e.trim().split('\n').map(l=>{const[pid,prob]=l.split(':');return{prize_id:parseInt(pid),probability:parseFloat(prob)}})}).then(()=>tst('奖池已更新','ok')).catch(e=>tst(e.message,'er'))}
-async function imK(){if(!kp.value)return;const d=await api.rq('POST','/api/admin/cardkeys/import',{product_id:kp.value,keys:kt.value});kt.value='';api.rq('GET','/api/admin/cardkeys?product_id='+kp.value).then(d=>ks.value=d);tst('已导入 '+d.count+' 条','ok')}
-function dlK(k){if(!confirm('确定删除此卡密？'))return;api.rq('DELETE','/api/admin/cardkeys/'+k.id).then(()=>{ks.value=ks.value.filter(x=>x.id!==k.id);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+async function imK(){if(!kp.value)return;const d=await api.rq('POST','/api/admin/cardkeys/import',{product_id:kp.value,keys:kt.value});kt.value='';selectedKeys.value=[];loadCardKeys(kp.value);tst('已导入 '+d.count+' 条','ok')}
+function dlK(k){if(!confirm('确定删除此卡密？'))return;api.rq('DELETE','/api/admin/cardkeys/'+k.id).then(()=>{ks.value=ks.value.filter(x=>x.id!==k.id);selectedKeys.value=selectedKeys.value.filter(id=>id!==k.id);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+function loadCardKeys(pid){api.rq('GET','/api/admin/cardkeys?product_id='+pid).then(d=>{ks.value=d;selectedKeys.value=[]}).catch(e=>console.error(e))}
 function completeOrder(o){if(!confirm('确定将此订单标记为完成？'))return;api.rq('POST','/api/admin/orders/'+o.id+'/complete',{}).then(()=>{o.status='completed';tst('订单已完成','ok')}).catch(e=>tst(e.message,'er'))}
 function cancelOrder(o){if(!confirm('确定取消此订单？'))return;api.rq('POST','/api/orders/'+o.id+'/cancel',{}).then(()=>{o.status='cancelled';tst('订单已取消','ok')}).catch(e=>tst(e.message,'er'))}
 function toggleAdmin(u){var action=u.is_admin?'取消管理员权限':'设为管理员';if(!confirm('确定要'+action+'？'))return;api.rq('PUT','/api/admin/users/'+u.id+'/toggle-admin',{}).then(function(d){u.is_admin=d.is_admin;tst('已更新','ok')}).catch(e=>tst(e.message,'er'))}
@@ -1966,7 +2049,7 @@ async function saveLogRetention(){
 async function manualCleanupLogs(){
   try{await api.rq('POST','/api/admin/logs/cleanup');tst('已清理过期日志','ok');loadLogs()}catch(e){tst(e.message,'er')}
 }
-return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerImageUpload,handleImageUpload,removeProductImage,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,loadLogRetention,saveLogRetention,manualCleanupLogs}
+return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerImageUpload,handleImageUpload,removeProductImage,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,loadLogRetention,saveLogRetention,manualCleanupLogs}
 }
 }).mount('#app')
 // 后备方案已移至独立script标签

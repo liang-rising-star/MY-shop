@@ -38,3 +38,22 @@ async def delete_key(kid: int, request: Request):
         s.delete(k)
         s.commit()
     return {"message": "已删除"}
+
+@router.post("/api/admin/cardkeys/batch-delete")
+async def batch_delete_keys(data: dict, request: Request):
+    await require_admin(request)
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(400, "请选择要删除的卡密")
+    with Session(engine) as s:
+        keys = s.query(CardKey).filter(CardKey.id.in_(ids)).all()
+        deleted = 0
+        skipped = 0
+        for k in keys:
+            if k.status == "sold":
+                skipped += 1
+            else:
+                s.delete(k)
+                deleted += 1
+        s.commit()
+    return {"message": f"已删除{deleted}条" + (f"，跳过{skipped}条已售出" if skipped else ""), "deleted": deleted, "skipped": skipped}

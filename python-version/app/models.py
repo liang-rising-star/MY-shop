@@ -54,6 +54,8 @@ class Product(Base):
     original_price = Column(Float, nullable=True)
     cost_price = Column(Float, nullable=True)
     discount = Column(Float, default=0)
+    discount_mode = Column(String(20), default="none")
+    discount_percent = Column(Float, default=0)
     discount_price = Column(Float, nullable=True)
     discount_start = Column(DateTime, nullable=True)
     discount_end = Column(DateTime, nullable=True)

@@ -485,7 +485,7 @@ async def download_file_via_api(file_path: str, request: Request):
 
 @app.get("/")
 def home():
-    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
+    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 @app.get("/admin-login")
 async def admin_login_page():
@@ -506,7 +506,7 @@ def serve_frontend(path: str = ""):
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
     # 否则返回index.html（SPA模式）
-    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
+    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
