@@ -598,25 +598,27 @@ select.input-neon { cursor: pointer; }
   justify-content: center;
   transition: all 0.15s;
   padding: 0;
-  border-radius: 4px;
 }
+.qty-btn:first-child { border-radius: 4px 0 0 4px; }
+.qty-btn:last-child { border-radius: 0 4px 4px 0; }
 .qty-btn:hover:not(:disabled) { background: var(--neon-cyan); color: var(--bg); }
 .qty-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 .qty-control .qty-input {
-  width: 64px;
+  width: 52px;
   height: 36px;
   text-align: center;
   border: 1px solid var(--neon-cyan);
+  border-left: 1px solid var(--neon-cyan);
+  border-right: 1px solid var(--neon-cyan);
   background: transparent;
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 600;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 0;
   outline: none;
-  margin: 0 -2px;
 }
-.qty-control .qty-input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 6px rgba(0,240,255,0.2); }
+.qty-control .qty-input:focus { box-shadow: none; }
 .qty-control .qty-input::-webkit-outer-spin-button,
 .qty-control .qty-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
