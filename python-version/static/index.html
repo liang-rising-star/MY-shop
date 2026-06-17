@@ -759,6 +759,16 @@
         <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">{{ t.message }}</div>
       </transition-group>
     </div>
+    <div v-if="showConfirmModal" class="confirm-overlay" @click.self="confirmResolveFn(false)">
+      <div class="confirm-dialog">
+        <div class="confirm-header"><h3><i class="fas fa-exclamation-triangle" style="color:var(--neon-red)"></i> 确认操作</h3></div>
+        <div class="confirm-body"><p>{{ confirmMessage }}</p></div>
+        <div class="confirm-footer">
+          <button class="btn-glow" style="border-color:var(--text-dim);color:var(--text-dim);background:transparent" @click="confirmResolveFn(false)">取消</button>
+          <button class="btn-glow" @click="confirmResolveFn(true)">确定</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/static/js/vue.min.js" defer></script>

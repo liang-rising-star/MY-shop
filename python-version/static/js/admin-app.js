@@ -16,6 +16,11 @@ const msg=ref('验证中...'),tb=ref('db'),un=ref(''),ts=ref([]),rd=ref(false),r
 
 function tst(m,ty){ts.value.push({id:Date.now(),msg:m,ty});setTimeout(()=>ts.value.splice(0,1),3000)}
 
+const showConfirmModal=ref(false),confirmMessage=ref('')
+let confirmResolve=null
+function confirmAsync(msg){showConfirmModal.value=true;confirmMessage.value=msg;return new Promise(r=>{confirmResolve=r})}
+function confirmResolveFn(v){showConfirmModal.value=false;if(confirmResolve)confirmResolve(v);confirmResolve=null}
+
 const api={
   tk:token.value,
   async rq(m,p,b){
@@ -325,7 +330,7 @@ async function deleteRecommend(id){
     if(idx>-1)recommends.value.splice(idx,1);
     return;
   }
-  if(!confirm('确定删除此推荐分类？'))return;
+  if(!(await confirmAsync('确定删除此推荐分类？')))return;
   try{
     await api.rq('DELETE','/api/admin/recommends/'+id);
     const idx=recommends.value.findIndex(r=>r.id===id);
@@ -351,7 +356,7 @@ async function loadRecommends(){
 }
 function closeProductModal(){showProductModal.value=false;editingProduct.value=null}
 function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price<=0){tst('请输入有效的价格','er');return}d.image_url=d.imageList[0]||'';d.images=d.imageList.join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
-function deleteProduct(){if(!editingProduct.value)return;if(!confirm('确定删除此商品？此操作不可恢复！'))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
+async function deleteProduct(){if(!editingProduct.value)return;if(!(await confirmAsync('确定删除此商品？此操作不可恢复！')))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
 function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;if(available===0)return'empty';if(available<=5)return'low';if(available<=total*0.3)return'medium';return'high'}
 function getStockStatus(p){const available=p.available_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(available<=warning)return'low';return'available'}
 function getStockText(p){const available=p.available_stock||0;if(available===0)return'已售罄';const warning=p.stock_warning||10;if(available<=warning)return'库存紧张';return'有货'}
@@ -491,37 +496,37 @@ function svPd(){const d=pf.value;if(!d.name||!d.price){tst('请填写完整','er
   const fn=eid.value?api.rq('PUT','/api/admin/products/'+eid.value,d):api.rq('POST','/api/admin/products',d)
   fn.then(()=>{spf.value=false;eid.value=0;pf.value={name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'};api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已保存','ok')}).catch(e=>tst(e.message,'er'))}
 function edPd(p){eid.value=p.id;pf.value={name:p.name,description:p.description||'',price:p.price,category_id:p.category_id,type:p.type,delivery_type:p.delivery_type||'card_key'};spf.value=true}
-function dlPd(id){if(!confirm('确定删除？'))return;api.rq('DELETE','/api/admin/products/'+id).then(()=>{api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
-function sk(p){kp.value=p.id;tb.value='ke';api.rq('GET','/api/admin/cardkeys?product_id='+p.id).then(d=>ks.value=d)}
+async function dlPd(id){if(!(await confirmAsync('确定删除？')))return;api.rq('DELETE','/api/admin/products/'+id).then(()=>{api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+function sk(p){kp.value=p.id;tb.value='ke';selectedKeys.value=[];loadCardKeys(p.id)}
 function sp(p){const e=prompt('奖池(商品ID:概率%)每行:\n2:50\n3:30');if(!e)return;api.rq('PUT','/api/admin/products/'+p.id+'/blindbox',{entries:e.trim().split('\n').map(l=>{const[pid,prob]=l.split(':');return{prize_id:parseInt(pid),probability:parseFloat(prob)}})}).then(()=>tst('奖池已更新','ok')).catch(e=>tst(e.message,'er'))}
 async function imK(){if(!kp.value)return;const d=await api.rq('POST','/api/admin/cardkeys/import',{product_id:kp.value,keys:kt.value});kt.value='';api.rq('GET','/api/admin/cardkeys?product_id='+kp.value).then(d=>ks.value=d);tst('已导入 '+d.count+' 条','ok')}
-function dlK(k){if(!confirm('确定删除此卡密？'))return;api.rq('DELETE','/api/admin/cardkeys/'+k.id).then(()=>{ks.value=ks.value.filter(x=>x.id!==k.id);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
-function completeOrder(o){if(!confirm('确定将此订单标记为完成？'))return;api.rq('POST','/api/admin/orders/'+o.id+'/complete',{}).then(()=>{o.status='completed';tst('订单已完成','ok')}).catch(e=>tst(e.message,'er'))}
-function cancelOrder(o){if(!confirm('确定取消此订单？'))return;api.rq('POST','/api/orders/'+o.id+'/cancel',{}).then(()=>{o.status='cancelled';tst('订单已取消','ok')}).catch(e=>tst(e.message,'er'))}
-function toggleAdmin(u){var action=u.is_admin?'取消管理员权限':'设为管理员';if(!confirm('确定要'+action+'？'))return;api.rq('PUT','/api/admin/users/'+u.id+'/toggle-admin',{}).then(function(d){u.is_admin=d.is_admin;tst('已更新','ok')}).catch(e=>tst(e.message,'er'))}
+async function dlK(k){if(!(await confirmAsync('确定删除此卡密？')))return;api.rq('DELETE','/api/admin/cardkeys/'+k.id).then(()=>{ks.value=ks.value.filter(x=>x.id!==k.id);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+async function completeOrder(o){if(!(await confirmAsync('确定将此订单标记为完成？')))return;api.rq('POST','/api/admin/orders/'+o.id+'/complete',{}).then(()=>{o.status='completed';tst('订单已完成','ok')}).catch(e=>tst(e.message,'er'))}
+async function cancelOrder(o){if(!(await confirmAsync('确定取消此订单？')))return;api.rq('POST','/api/admin/orders/'+o.id+'/cancel',{}).then(()=>{o.status='cancelled';tst('订单已取消','ok')}).catch(e=>tst(e.message,'er'))}
+async function toggleAdmin(u){var action=u.is_admin?'取消管理员权限':'设为管理员';if(!(await confirmAsync('确定要'+action+'？')))return;api.rq('PUT','/api/admin/users/'+u.id+'/toggle-admin',{}).then(function(d){u.is_admin=d.is_admin;tst('已更新','ok')}).catch(e=>tst(e.message,'er'))}
 const orFilter=ref('')
 const filteredOrders=computed(()=>{if(!orFilter.value)return or.value;return or.value.filter(function(o){return o.status===orFilter.value})})
 function getCouponName(couponId){const c=coupons.value.find(x=>x.id===couponId);return c?c.name:'未选择'}
 async function loadCoupons(){try{const d=await api.rq('GET','/api/admin/coupons');coupons.value=d||[]}catch(e){console.error(e)}}
 async function addCoupon(){const d=newCoupon.value;if(!d.name){tst('请填写优惠券名称','er');return}if(!d.value){tst('请填写优惠值','er');return}try{await api.rq('POST','/api/admin/coupons',{...d,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null});newCoupon.value={name:'',type:'percentage',value:0,min_amount:0,total_count:0,expires_at:''};showAddCoupon.value=false;loadCoupons();tst('优惠券已添加','ok')}catch(e){tst('添加失败: '+e.message,'er')}}
-async function delCoupon(id){if(!confirm('确定删除此优惠券？'))return;try{await api.rq('DELETE','/api/admin/coupons/'+id);loadCoupons();tst('已删除','ok')}catch(e){tst('删除失败: '+e.message,'er')}}
+async function delCoupon(id){if(!(await confirmAsync('确定删除此优惠券？')))return;try{await api.rq('DELETE','/api/admin/coupons/'+id);loadCoupons();tst('已删除','ok')}catch(e){tst('删除失败: '+e.message,'er')}}
 async function giveCoupon(coupon){const username=prompt('请输入用户名：');if(!username)return;try{await api.rq('POST','/api/admin/coupons/'+coupon.id+'/give',{username});tst('已发放给 '+username,'ok')}catch(e){tst('发放失败: '+e.message,'er')}}
 function generatePromoCode(){const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';let code='';for(let i=0;i<12;i++){if(i>0&&i%4===0)code+='-';code+=chars.charAt(Math.floor(Math.random()*chars.length))}return code}
 function copyPromoCode(code){navigator.clipboard.writeText(code).then(()=>tst('优惠码已复制','ok')).catch(()=>tst('复制失败','er'))}
 async function loadPromoCodes(){try{const d=await api.rq('GET','/api/admin/promo-codes');promoCodes.value=d||[]}catch(e){console.error(e)}}
 async function createPromoCode(){const d=newPromo.value;if(!d.value){tst('请填写优惠值','er');return}const code=d.code||generatePromoCode();await api.rq('POST','/api/admin/promo-codes',{code,type:d.type,value:d.value,min_amount:d.min_amount,max_uses:d.max_uses,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null,remark:d.remark});newPromo.value={code:'',type:'percentage',value:0,min_amount:0,max_uses:0,expires_at:'',remark:''};loadPromoCodes();tst('优惠码已创建','ok')}
 async function createRedeemCode(){const d=newRedeem.value;if(!d.coupon_id){tst('请选择关联优惠券','er');return}const code=d.code||generatePromoCode();await api.rq('POST','/api/admin/promo-codes',{code,coupon_id:d.coupon_id,give_count:d.give_count,max_uses:d.max_uses,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null,remark:d.remark});newRedeem.value={code:'',coupon_id:0,give_count:1,max_uses:0,expires_at:'',remark:''};loadPromoCodes();tst('兑换码已创建','ok')}
-function dlCo(id){if(!confirm('确定删除？'))return;api.rq('DELETE','/api/admin/promo-codes/'+id).then(()=>{loadPromoCodes();tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+async function dlCo(id){if(!(await confirmAsync('确定删除？')))return;api.rq('DELETE','/api/admin/promo-codes/'+id).then(()=>{loadPromoCodes();tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
 async function loadInviteSettings(){try{const d=await api.rq('GET','/api/admin/invites/settings');if(d.settings)invSettings.value={...invSettings.value,...d.settings}}catch(e){console.error(e)}}
 async function loadInviteRecords(){try{const d=await api.rq('GET','/api/admin/invites/records');inviteRecords.value=d||[]}catch(e){console.error(e)}}
 async function saveInvSettings(){await api.rq('POST','/api/admin/invites/settings',invSettings.value);tst('设置已保存','ok')}
 async function loadCouponRules(){try{const d=await api.rq('GET','/api/admin/coupon-rules');couponRules.value=d||[]}catch(e){console.error(e)}}
 async function createRule(){const d=newRule.value;if(!d.name||!d.coupon_id){tst('请填写完整信息','er');return}try{await api.rq('POST','/api/admin/coupon-rules',d);newRule.value={name:'',type:'register',coupon_id:0,give_count:1,product_id:0,category_id:0,min_order_amount:0,enabled:true};showAddRule.value=false;loadCouponRules();tst('规则已创建','ok')}catch(e){tst('创建失败: '+e.message,'er')}}
 async function updateRule(rule){try{await api.rq('PUT','/api/admin/coupon-rules/'+rule.id,{name:rule.name,type:rule.type,coupon_id:rule.coupon_id,give_count:rule.give_count,product_id:rule.product_id,category_id:rule.category_id,min_order_amount:rule.min_order_amount,enabled:rule.enabled});tst('规则已更新','ok')}catch(e){tst('更新失败: '+e.message,'er')}}
-async function deleteRule(id){if(!confirm('确定删除此规则？'))return;try{await api.rq('DELETE','/api/admin/coupon-rules/'+id);loadCouponRules();tst('已删除','ok')}catch(e){tst('删除失败: '+e.message,'er')}}
+async function deleteRule(id){if(!(await confirmAsync('确定删除此规则？')))return;try{await api.rq('DELETE','/api/admin/coupon-rules/'+id);loadCouponRules();tst('已删除','ok')}catch(e){tst('删除失败: '+e.message,'er')}}
 async function mkCo(){const d=cpc.value;if(!d.coupon_id){tst('请选择关联优惠券','er');return}const code=d.code||generatePromoCode();await api.rq('POST','/api/admin/promo-codes',{code,coupon_id:d.coupon_id,remark:d.remark,max_uses:d.max_uses,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null});cpc.value={code:'',coupon_id:0,remark:'',max_uses:0,expires_at:''};loadPromoCodes();tst('优惠码已创建','ok')}
 async function mkCt(){if(!cf.value.name){tst('填写名称','er');return}await api.rq('POST','/api/admin/categories',cf.value);cf.value={name:'',sort_order:0};api.rq('GET','/api/categories').then(d=>ct.value=d);tst('已创建','ok')}
-function dlCt(id){if(!confirm('确定删除？'))return;api.rq('DELETE','/api/categories/'+id).then(()=>{api.rq('GET','/api/categories').then(d=>ct.value=d);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+async function dlCt(id){if(!(await confirmAsync('确定删除？')))return;api.rq('DELETE','/api/categories/'+id).then(()=>{api.rq('GET','/api/categories').then(d=>ct.value=d);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
 async function saveSt(){await api.rq('POST','/api/admin/config',st.value);tst('设置已保存','ok')}
 async function testEmail(){const email=prompt('请输入测试邮箱地址：');if(!email)return;try{await api.rq('POST','/api/admin/config/email/test',{email});tst('测试邮件发送成功','ok')}catch(e){tst('发送失败: '+e.message,'er')}}
 async function testSms(){const phone=prompt('请输入测试手机号：');if(!phone)return;try{await api.rq('POST','/api/admin/config/sms/test',{phone});tst('测试短信发送成功','ok')}catch(e){tst('发送失败: '+e.message,'er')}}
@@ -570,7 +575,7 @@ async function saveEventProduct(){
   }catch(e){tst(e.message,'er')}
 }
 async function deleteEventProduct(p){
-  if(!confirm('确定要删除此活动商品吗？'))return;
+  if(!(await confirmAsync('确定要删除此活动商品吗？')))return;
   try{
     await api.rq('DELETE','/api/admin/events/products/'+p.id);
     await loadEventProducts();
@@ -585,7 +590,7 @@ async function loadEventProducts(){
 }
 function fm(t){return t?t.slice(0,19).replace('T',' '):''}
 function stTxt(s){return{'pending':'待付款','paid':'已付款','shipped':'已发货','completed':'已完成','cancelled':'已取消'}[s]||s}
-return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,saveSt,testEmail,testSms,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,completeOrder,cancelOrder,toggleAdmin,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerImageUpload,handleImageUpload,removeProductImage,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,toggleProductInRecommend}
+return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,saveSt,testEmail,testSms,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,completeOrder,cancelOrder,toggleAdmin,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerImageUpload,handleImageUpload,removeProductImage,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,toggleProductInRecommend,showConfirmModal,confirmMessage,confirmResolveFn}
 }
 }).mount('#app')
 // 后备方案：监听到Vue挂载后隐藏加载层

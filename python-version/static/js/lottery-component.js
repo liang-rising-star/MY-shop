@@ -62,6 +62,13 @@ Vue.component('lottery-wheel', {
         }
     },
     methods: {
+        showToast(msg) {
+          const el = document.createElement('div');
+          el.style.cssText = 'position:fixed;top:80px;right:20px;z-index:99999;padding:12px 24px;border-radius:8px;font-size:0.9rem;min-width:200px;backdrop-filter:blur(10px);border:1px solid #ff4444;color:#ff4444;background:rgba(255,0,0,0.1);animation:slide-in 0.3s ease';
+          el.textContent = msg;
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 3000);
+        },
         async draw() {
             if (!this.canDraw || this.isSpinning) return;
             
@@ -105,7 +112,7 @@ Vue.component('lottery-wheel', {
                 }
             } catch (err) {
                 console.error('抽奖失败:', err);
-                alert(err.response?.data?.detail || '抽奖失败，请重试');
+                this.showToast(err.response?.data?.detail || '抽奖失败，请重试');
                 this.isSpinning = false;
             }
         },

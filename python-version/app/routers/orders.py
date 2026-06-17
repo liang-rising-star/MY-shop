@@ -344,13 +344,32 @@ def deliver_order(order_id: int, s: Session):
     order.status = "completed"
     return True
 
+@router.post("/api/admin/orders/{oid}/cancel")
+async def admin_cancel_order(oid: int, request: Request):
+    await require_admin(request)
+    with Session(engine) as s:
+        o = s.query(Order).filter(Order.id == oid).with_for_update().first()
+        if not o: raise HTTPException(404, "订单不存在")
+        if o.status not in ["pending"]:
+            raise HTTPException(400, "当前状态不可取消")
+        
+        # 回滚优惠券
+        if o.coupon_id:
+            s.query(Coupon).filter(Coupon.id == o.coupon_id).update(
+                {"used_count": Coupon.used_count - 1}
+            )
+        
+        o.status = "cancelled"
+        s.commit()
+    return {"message": "订单已取消"}
+
 @router.post("/api/orders/{oid}/cancel")
 async def cancel_order(oid: int, request: Request):
     await get_current_user(request)
     with Session(engine) as s:
         o = s.query(Order).filter(Order.id == oid, Order.user_id == request.state.user_id).with_for_update().first()
         if not o: raise HTTPException(404)
-        if o.status not in ["pending"]: 
+        if o.status not in ["pending"]:
             raise HTTPException(400, "当前状态不可取消")
         
         # 回滚优惠券

@@ -6,6 +6,26 @@ const lotteryManagement = {
     editingWheel: null,
     editingPrize: null,
     
+    showToast(msg, type='error') {
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;top:80px;right:20px;z-index:99999;padding:12px 24px;border-radius:8px;font-size:0.9rem;min-width:200px;backdrop-filter:blur(10px);border:1px solid ${type==='error'?'#ff4444':'var(--primary)'};color:${type==='error'?'#ff4444':'var(--primary)'};background:${type==='error'?'rgba(255,0,0,0.1)':'rgba(0,240,255,0.1)'};animation:slide-in 0.3s ease`;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    },
+    
+    confirmAsync(msg) {
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999';
+        overlay.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--primary);border-radius:12px;width:400px;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,0.5)"><div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border)"><h3 style="font-size:1rem;color:var(--primary);margin:0">确认操作</h3></div><div style="padding:1.5rem;font-size:0.95rem;color:var(--text)"><p style="margin:0;line-height:1.6">${msg}</p></div><div style="display:flex;justify-content:flex-end;gap:0.8rem;padding:1rem 1.5rem;border-top:1px solid var(--border)"><button onclick="this.closest('.confirm-overlay')?.remove()" style="padding:0.4rem 0.8rem;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;cursor:pointer">取消</button><button id="confirm-ok-btn" style="padding:0.4rem 0.8rem;background:var(--primary);border:none;color:#fff;border-radius:6px;cursor:pointer">确定</button></div></div>`;
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999';
+        document.body.appendChild(overlay);
+        overlay.querySelector('#confirm-ok-btn').onclick = () => { overlay.remove(); resolve(true); };
+        overlay.querySelectorAll('button')[0].onclick = () => { overlay.remove(); resolve(false); };
+      });
+    },
+    
     // 加载所有转盘
     async loadWheels() {
         try {
@@ -43,7 +63,7 @@ const lotteryManagement = {
     
     // 删除转盘
     async deleteWheel(wheelId) {
-        if (!confirm('确定要删除这个转盘吗？所有关联的奖品也会被删除！')) return;
+        if (!(await this.confirmAsync('确定要删除这个转盘吗？所有关联的奖品也会被删除！'))) return;
         
         try {
             await axios.delete(`/api/admin/lottery/wheels/${wheelId}`);
@@ -239,7 +259,7 @@ const lotteryManagement = {
             document.getElementById('wheel-modal')?.remove();
             this.renderWheelList();
         } catch (err) {
-            alert('保存失败: ' + (err.response?.data?.detail || err.message));
+            this.showToast('保存失败: ' + (err.response?.data?.detail || err.message));
         }
     },
     
@@ -339,7 +359,7 @@ const lotteryManagement = {
             await this.loadWheels();
             this.renderWheelList();
         } catch (err) {
-            alert('添加失败: ' + (err.response?.data?.detail || err.message));
+            this.showToast('添加失败: ' + (err.response?.data?.detail || err.message));
         }
     },
     
@@ -436,7 +456,7 @@ const lotteryManagement = {
             await this.loadWheels();
             this.renderWheelList();
         } catch (err) {
-            alert('保存失败: ' + (err.response?.data?.detail || err.message));
+            this.showToast('保存失败: ' + (err.response?.data?.detail || err.message));
         }
     },
     

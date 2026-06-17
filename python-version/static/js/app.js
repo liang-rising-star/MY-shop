@@ -208,6 +208,11 @@ const timedProducts = computed(() => eventProducts.value)
       }, 3000)
     }
 
+    const showConfirmModal=ref(false),confirmMessage=ref('')
+    let _confirmResolve=null
+    function confirmAsync(msg){showConfirmModal.value=true;confirmMessage.value=msg;return new Promise(r=>{_confirmResolve=r})}
+    function confirmResolveFn(v){showConfirmModal.value=false;if(_confirmResolve)_confirmResolve(v);_confirmResolve=null}
+
     function copy(text) { navigator.clipboard?.writeText(text).then(() => toast('已复制')) }
     function statusText(s) { return { pending:'待支付',paid:'已支付',shipped:'已发货',completed:'已完成',refunded:'已退款' }[s] || s }
     function formatDate(t) { return t ? t.slice(0,19).replace('T',' ') : '' }
@@ -356,21 +361,33 @@ const timedProducts = computed(() => eventProducts.value)
         if (selectedPayMethod.value === 'balance') {
           try {
             await API.payOrder(order.id, 'balance')
+            showPayModal.value = false
             toast('支付成功！')
             lastOrder.value = order
-            showPayModal.value = false
             loadOrders(); loadProducts(); loadProfile(); loadMyCoupons()
           } catch(e) {
-            toast('支付失败: ' + e.message, 'error')
+            showPayModal.value = false
+            if (e.message && e.message.includes('余额不足')) {
+              toast('余额不足，请先充值', 'error')
+            } else {
+              toast('支付失败: ' + e.message, 'error')
+            }
           }
         } else {
           const methodNames = {alipay:'支付宝',wxpay:'微信支付',qqpay:'QQ钱包',mazf:'码支付',yishoumi:'易收米',usdt:'USDT'}
           const name = methodNames[selectedPayMethod.value] || selectedPayMethod.value
-          toast(`支付通道【${name}】暂未完成对接，请联系客服或管理员修复`, 'error')
           showPayModal.value = false
+          toast(`支付通道【${name}】暂未完成对接，请联系客服或管理员修复`, 'error')
           loadOrders(); loadProducts(); loadProfile()
         }
-      } catch(e){ toast(e.message,'error') }
+      } catch(e){
+        showPayModal.value = false
+        if (e.message && e.message.includes('余额不足')) {
+          toast('余额不足，请先充值', 'error')
+        } else {
+          toast(e.message,'error')
+        }
+      }
       paySubmitting.value = false
     }
 
@@ -384,7 +401,7 @@ const timedProducts = computed(() => eventProducts.value)
       }
     }
     function editProduct(p) { editingProduct.value=p; prodForm.value={Name:p.Name,Description:p.Description,Price:p.Price,CategoryID:p.CategoryID,Type:p.Type,ImageURL:p.ImageURL}; showProductForm.value=true }
-    function deleteProduct(id) { if(!confirm('确定删除？')) return; API.deleteProduct(id).then(()=>{ toast('已删除'); loadProducts() }).catch(e=>toast(e.message,'error')) }
+    async function deleteProduct(id) { if(!await confirmAsync('确定删除？')) return; API.deleteProduct(id).then(()=>{ toast('已删除'); loadProducts() }).catch(e=>toast(e.message,'error')) }
     function selectProductForKeys(p) { keyProductID.value=p.id||p.ID; adminTab.value='keys' }
     async function selectProductForPool(p) {
       const pid = p.id || p.ID
@@ -659,7 +676,8 @@ const timedProducts = computed(() => eventProducts.value)
       eventSettings, eventProducts,
       showPayModal, payPreview, selectedPayMethod, selectedCouponId,
       promoCodeInput, promoMsg, promoMsgType, paySubmitting,
-      selectCoupon, applyPromoCode, confirmPay
+      selectCoupon, applyPromoCode, confirmPay,
+      showConfirmModal, confirmMessage, confirmResolveFn
     }
   }
 })
