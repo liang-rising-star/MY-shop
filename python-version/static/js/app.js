@@ -214,7 +214,7 @@ const timedProducts = computed(() => eventProducts.value)
     function confirmResolveFn(v){showConfirmModal.value=false;if(_confirmResolve)_confirmResolve(v);_confirmResolve=null}
 
     function copy(text) { navigator.clipboard?.writeText(text).then(() => toast('已复制')) }
-    function statusText(s) { return { pending:'待支付',paid:'已支付',shipped:'已发货',completed:'已完成',refunded:'已退款' }[s] || s }
+    function statusText(s) { return { pending:'待支付',paid:'已支付',shipped:'已发货',completed:'已完成',cancelled:'已取消',failed:'失败',refunded:'已退款' }[s] || s }
     function formatDate(t) { return t ? t.slice(0,19).replace('T',' ') : '' }
 
     async function loadProducts(featured=0) { try { const q=featured?'?featured=1':''; const d = await API.listProducts(q); products.value = d.products || [] } catch(e){} }

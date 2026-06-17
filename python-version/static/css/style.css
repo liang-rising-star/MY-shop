@@ -753,6 +753,7 @@ select.input-neon { cursor: pointer; }
 .order-status.shipped { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
 .order-status.delivered { background: rgba(0, 255, 136, 0.3); color: #00ff44; }
 .order-status.cancelled { background: rgba(255, 0, 0, 0.2); color: #ff4444; }
+.order-status.completed { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
 .order-body { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.5rem; }
 .order-footer {
   display: flex;
@@ -1214,6 +1215,8 @@ textarea.input-neon { min-height: 100px; resize: vertical; }
 .uc-order-status-badge.paid{background:rgba(0,240,255,.2);color:var(--neon-cyan)}
 .uc-order-status-badge.completed{background:rgba(0,255,136,.2);color:var(--neon-green)}
 .uc-order-status-badge.refunded{background:rgba(255,68,68,.2);color:#ff4444}
+.uc-order-status-badge.cancelled{background:rgba(255,68,68,.2);color:#ff4444}
+.uc-order-status-badge.failed{background:rgba(255,68,68,.2);color:#ff4444}
 .uc-order-bottom{display:flex;justify-content:space-between;align-items:center;font-size:0.85rem}
 .uc-order-mid{display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-dim);margin-bottom:0.3rem}
 .uc-order-keys{margin-top:0.4rem;display:flex;flex-direction:column;gap:0.3rem}
