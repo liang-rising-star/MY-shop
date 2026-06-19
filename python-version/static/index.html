@@ -284,8 +284,8 @@
                     <span class="detail-qty-label">数量</span>
                     <div class="qty-control">
                       <button class="qty-btn" @click="buyQty = Math.max(1, buyQty - 1)" :disabled="buyQty <= 1">−</button>
-                      <input v-model.number="buyQty" type="number" min="1" max="1000" class="qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= 1000) ? buyQty : 1" />
-                      <button class="qty-btn" @click="buyQty = Math.min(1000, buyQty + 1)" :disabled="buyQty >= 1000">+</button>
+                      <input v-model.number="buyQty" type="number" min="1" :max="detail.card_key_count || 1000" class="qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= (detail.card_key_count || 1000)) ? buyQty : 1" />
+                      <button class="qty-btn" @click="buyQty = Math.min(detail.card_key_count || 1000, buyQty + 1)" :disabled="buyQty >= (detail.card_key_count || 1000)">+</button>
                     </div>
                   </div>
                   <button class="btn-glow detail-buy-btn" @click="checkout(detail.product)" :disabled="!detail.available || detail.card_key_count<=0">
