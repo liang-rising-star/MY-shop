@@ -307,6 +307,8 @@ input:checked + .slider:before{transform:translateX(20px)}
           <div class="sc"><div class="sn">{{ da.all_order_num||da.all_orders||0 }}</div><div class="sl">总订单</div></div>
           <div class="sc"><div class="sn">¥{{ ((da.all_turnover||da.all_income||0)*1).toFixed(2) }}</div><div class="sl">总收入</div></div>
           <div class="sc"><div class="sn">{{ da.total_users||0 }}</div><div class="sl">用户数</div></div>
+          <div class="sc" style="background:rgba(255,167,38,0.1)"><div class="sn" style="color:var(--warning)">{{ da.low_stock_count||0 }}</div><div class="sl">库存紧张</div></div>
+          <div class="sc" style="background:rgba(239,83,80,0.1)"><div class="sn" style="color:var(--danger)">{{ da.out_of_stock_count||0 }}</div><div class="sl">已缺货</div></div>
         </div>
       </div>
       <div class="bd">
@@ -1074,14 +1076,14 @@ input:checked + .slider:before{transform:translateX(20px)}
       <div class="form-section">
         <h3><i class="fas fa-tag"></i> 定价与折扣</h3>
         <div style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center">
-          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='percent'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
-            <input type="radio" value="percent" v-model="productForm.discount_mode" style="accent-color:var(--primary)" /> 限时折扣
+          <label @click="productForm.discount_mode='percent'" style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='percent'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
+            限时折扣
           </label>
-          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='fixed'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
-            <input type="radio" value="fixed" v-model="productForm.discount_mode" style="accent-color:var(--primary)" /> 降价
+          <label @click="productForm.discount_mode='fixed'" style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='fixed'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
+            降价
           </label>
-          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='none'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
-            <input type="radio" value="none" v-model="productForm.discount_mode" style="accent-color:var(--primary)" /> 不打折
+          <label @click="productForm.discount_mode='none'" style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='none'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
+            不打折
           </label>
         </div>
         <div v-if="productForm.discount_mode==='percent'" class="form-grid">

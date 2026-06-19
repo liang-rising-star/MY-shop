@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import engine
-from app.models import Order, User
+from app.models import Order, User, Product, CardKey
 from app.auth import require_admin
 
 router = APIRouter()
@@ -49,6 +49,17 @@ async def dashboard_data(request: Request, period: int = 0):
         all_order_num = all_paid.count()
         total_users = s.query(User).count()
 
+        # 统计商品库存状态
+        products = s.query(Product).filter(Product.is_active == True).all()
+        low_stock_count = 0
+        out_of_stock_count = 0
+        for p in products:
+            available = s.query(CardKey).filter(CardKey.product_id == p.id, CardKey.status == "available").count()
+            if available == 0:
+                out_of_stock_count += 1
+            elif p.stock_warning > 0 and available <= p.stock_warning:
+                low_stock_count += 1
+
         return {
             "period": period,
             "turnover": round(turnover, 2),
@@ -60,6 +71,8 @@ async def dashboard_data(request: Request, period: int = 0):
             "total_users": total_users,
             "online_amount": round(turnover * 0.7, 2),
             "recharge_amount": round(turnover * 0.3, 2),
+            "low_stock_count": low_stock_count,
+            "out_of_stock_count": out_of_stock_count,
         }
 
 @router.get("/api/admin/dashboard/charts")
