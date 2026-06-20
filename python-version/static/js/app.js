@@ -363,40 +363,11 @@ const timedProducts = computed(() => eventProducts.value)
     function nextMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length; setTimeout(playCurrentVideo, 100); }
     function selectMedia(i) { stopAutoSlide(); stopVideo(); detailMediaIdx.value = i; setTimeout(playCurrentVideo, 100); }
     function getVideoThumb(url) { return videoThumbnails.value[url] || ''; }
-    function generateThumb(vid, url) {
-      try {
-        if (!vid || vid.videoWidth === 0 || vid.videoHeight === 0) return false;
-        const canvas = document.createElement('canvas');
-        canvas.width = vid.videoWidth;
-        canvas.height = vid.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        if (dataUrl && dataUrl.length > 200) {
-          videoThumbnails.value[url] = dataUrl;
-          return true;
-        }
-      } catch(e) {}
-      return false;
-    }
-    function tryCaptureThumb(vid, url, attempts) {
-      if (attempts > 100) return;
-      if (generateThumb(vid, url)) return;
-      setTimeout(() => { tryCaptureThumb(vid, url, attempts + 1); }, 50);
-    }
     function playCurrentVideo() {
       const vid = detailVideoRef.value;
       const url = detailMediaList.value[detailMediaIdx.value];
       if (!vid || vid.tagName !== 'VIDEO' || !url) return;
-      const onReady = () => {
-        try { vid.currentTime = Math.min(1, (vid.duration || 5) * 0.15); } catch(e) {}
-        vid.onseeked = () => { generateThumb(vid, url); };
-        setTimeout(() => { generateThumb(vid, url); }, 500);
-      };
-      if (vid.readyState >= 2) { onReady(); }
-      else { vid.addEventListener('loadeddata', onReady, { once: true }); }
       vid.play().then(()=>{ startAutoSlide(); }).catch(()=>{});
-      setTimeout(() => { tryCaptureThumb(vid, url, 0); }, 1000);
     }
     function stopVideo() {
       const vid = detailVideoRef.value;

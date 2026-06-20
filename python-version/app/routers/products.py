@@ -320,9 +320,8 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
     }
 
 @router.get("/api/admin/products/{pid}/thumbnail")
-async def generate_video_thumbnail(pid: int, request: Request):
+async def generate_video_thumbnail(pid: int):
     """为视频生成缩略图"""
-    await require_admin(request)
     with Session(engine) as s:
         product = s.query(Product).filter(Product.id == pid).first()
         if not product:

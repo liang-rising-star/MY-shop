@@ -509,6 +509,13 @@ video::-webkit-media-controls-picture-in-picture-button,
 video::-webkit-media-controls-overflow-menu-button {
   display: none !important;
 }
+video::-webkit-media-controls-playback-rate-button,
+video::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+}
+video::part(playback-speed-button) {
+  display: none !important;
+}
 .edge-video-overlay,
 .ms-bubble,
 [aria-label="外观"],
