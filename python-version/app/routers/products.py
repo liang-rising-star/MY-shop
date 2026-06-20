@@ -292,12 +292,68 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
     # 计算相对路径用于API访问
     rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
     
+    # 视频自动生成缩略图
+    thumb_url = ""
+    if ext in ('.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'):
+        try:
+            import cv2
+            cap = cv2.VideoCapture(path)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
+                ret, frame = cap.read()
+                if ret:
+                    thumb_name = f"{uuid.uuid4().hex}.jpg"
+                    thumb_path = os.path.join(target_dir, thumb_name)
+                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
+                    thumb_url = f"/api/image/{thumb_rel}"
+                cap.release()
+        except Exception as e:
+            print(f"[Thumbnail Error] {e}")
+    
     print(f"[Upload Success] {filename} -> {rel_path}")
     return {
         "url": f"/api/image/{rel_path}", 
         "path": path,
-        "relative_path": rel_path
+        "relative_path": rel_path,
+        "thumbnail": thumb_url
     }
+
+@router.get("/api/admin/products/{pid}/thumbnail")
+async def generate_video_thumbnail(pid: int, request: Request):
+    """为视频生成缩略图"""
+    await require_admin(request)
+    with Session(engine) as s:
+        product = s.query(Product).filter(Product.id == pid).first()
+        if not product:
+            raise HTTPException(404, "商品不存在")
+        video_url = product.video_url or ""
+        if not video_url:
+            raise HTTPException(400, "该商品没有视频")
+        video_path = os.path.join(config.UPLOAD_DIR, video_url.replace("/api/image/", ""))
+        if not os.path.exists(video_path):
+            raise HTTPException(404, "视频文件不存在")
+        try:
+            import cv2
+            cap = cv2.VideoCapture(video_path)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
+                ret, frame = cap.read()
+                if ret:
+                    thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
+                    thumb_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
+                    os.makedirs(thumb_dir, exist_ok=True)
+                    thumb_path = os.path.join(thumb_dir, thumb_name)
+                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    cap.release()
+                    thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
+                    return {"thumbnail": f"/api/image/{thumb_rel}"}
+                cap.release()
+            raise HTTPException(500, "无法读取视频帧")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(500, f"生成缩略图失败: {str(e)}")
 
 # 批量上传商品文件（先存到temp）
 @router.post("/api/admin/products/{pid}/upload-files")

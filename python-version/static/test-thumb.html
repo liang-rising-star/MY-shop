@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head><title>Thumbnail Test</title></head>
+<body>
+<h2>Video Thumbnail Test</h2>
+<video id="vid" controls style="width:400px;height:300px;background:#333"></video>
+<br><br>
+<button onclick="testThumb()">测试截取缩略图</button>
+<br><br>
+<img id="thumb" style="width:400px;border:2px solid red;display:none" />
+<div id="log" style="margin-top:10px;font-family:monospace;font-size:12px"></div>
+<script>
+function log(msg) { document.getElementById('log').innerHTML += msg + '<br>'; }
+const vid = document.getElementById('vid');
+vid.src = '/api/image/images/products/0aa90b9843c54f6a8e0d88e7793710b2.mp4';
+log('Video src set: ' + vid.src);
+vid.onloadeddata = () => {
+  log('loadeddata fired, videoWidth=' + vid.videoWidth + ', videoHeight=' + vid.videoHeight + ', readyState=' + vid.readyState);
+};
+vid.onloadedmetadata = () => {
+  log('loadedmetadata fired, duration=' + vid.duration);
+};
+vid.onerror = (e) => {
+  log('ERROR: ' + vid.error?.message);
+};
+function testThumb() {
+  log('Attempting thumbnail capture...');
+  log('videoWidth=' + vid.videoWidth + ', videoHeight=' + vid.videoHeight + ', readyState=' + vid.readyState);
+  if (vid.videoWidth === 0 || vid.videoHeight === 0) {
+    log('FAIL: video dimensions are 0');
+    return;
+  }
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = vid.videoWidth;
+    canvas.height = vid.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+    log('SUCCESS: thumbnail length=' + dataUrl.length);
+    const img = document.getElementById('thumb');
+    img.src = dataUrl;
+    img.style.display = 'block';
+  } catch(e) {
+    log('FAIL: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>

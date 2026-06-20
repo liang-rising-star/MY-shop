@@ -125,6 +125,10 @@ for r in [setup, auth, products, categories, cardkeys, orders, coupons, admin, u
 
 import json as _json
 
+@app.get("/api/reviews")
+async def get_reviews(product_id: int = 0):
+    return {"reviews": []}
+
 @app.get("/api/admin/logs")
 async def get_admin_logs(request: Request, category: str = "all", page: int = 1, page_size: int = 50, level: str = "", sort: str = "time_desc"):
     from app.auth import require_admin
@@ -418,7 +422,7 @@ async def get_background(request: Request, mobile: bool = False):
 @app.get("/api/image/{file_path:path}")
 async def get_image_via_api(file_path: str, request: Request):
     """通过API访问图片和视频"""
-    check_anti_crawler(request, allow_empty_referer=False)
+    check_anti_crawler(request, allow_empty_referer=True)
     
     full_path = os.path.join(config.UPLOAD_DIR, file_path)
     
@@ -449,9 +453,12 @@ async def get_image_via_api(file_path: str, request: Request):
     
     response.headers["Cache-Control"] = "public, max-age=3600"
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "same-origin"
+    
+    video_exts = {'.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'}
+    if ext in video_exts:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
     
     return response
 
