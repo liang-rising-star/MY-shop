@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session, joinedload
 from app.database import engine
-from app.models import Product, ProductCategory, CardKey, BlindBoxPool, ProductSku, RecommendProduct, ProductFile
+from app.models import Product, ProductCategory, CardKey, BlindBoxPool, ProductSku, RecommendProduct, ProductFile, AppSetting
 from app.auth import require_admin
 from app.config import config
 import os, uuid, shutil, datetime, json, zipfile
@@ -78,7 +78,6 @@ def list_products(category_id: int = 0, type: str = "", featured: int = 0, searc
             d = {c.name: getattr(p, c.name) for c in p.__table__.columns}
             d["category"] = {"id": p.category.id, "name": p.category.name} if p.category else None
             d["available_stock"] = available_count
-            d["total_stock"] = total_count
             d["card_key_count"] = available_count
             d["display_price"] = get_display_price(p)
             d["original_display_price"] = get_original_display_price(p)
@@ -99,7 +98,6 @@ def get_product(pid: int):
         d = {c.name: getattr(p, c.name) for c in p.__table__.columns}
         d["category"] = {"id": p.category.id, "name": p.category.name} if p.category else None
         d["available_stock"] = cnt
-        d["total_stock"] = s.query(CardKey).filter(CardKey.product_id == pid).count()
         d["card_key_count"] = cnt
         d["display_price"] = get_display_price(p)
         d["original_display_price"] = get_original_display_price(p)
@@ -186,10 +184,46 @@ async def delete_product(pid: int, request: Request):
         sold_keys = s.query(CardKey).filter(CardKey.product_id == pid, CardKey.status == "sold").count()
         if sold_keys > 0:
             raise HTTPException(400, f"无法删除，该商品已有 {sold_keys} 个卡密已售出")
+        # 获取商品信息用于删除文件
+        product = s.query(Product).filter(Product.id == pid).first()
+        if product:
+            # 删除图片/视频文件
+            import glob as globmod
+            if product.images:
+                for img in product.images.split(","):
+                    img = img.strip()
+                    if img and img.startswith("/api/image/"):
+                        file_path = os.path.join(config.UPLOAD_DIR, img.replace("/api/image/", ""))
+                        if os.path.exists(file_path):
+                            try: os.remove(file_path)
+                            except: pass
+            if product.video_url and product.video_url.startswith("/api/image/"):
+                file_path = os.path.join(config.UPLOAD_DIR, product.video_url.replace("/api/image/", ""))
+                if os.path.exists(file_path):
+                    try: os.remove(file_path)
+                    except: pass
+            # 删除商品文件
+            files = s.query(ProductFile).filter(ProductFile.product_id == pid).all()
+            for f in files:
+                if f.file_path and os.path.exists(f.file_path):
+                    try: os.remove(f.file_path)
+                    except: pass
         s.query(CardKey).filter(CardKey.product_id == pid, CardKey.status == "available").delete()
         s.query(BlindBoxPool).filter(BlindBoxPool.product_id == pid).delete()
+        s.query(ProductFile).filter(ProductFile.product_id == pid).delete()
         s.query(Product).filter(Product.id == pid).delete()
         s.commit()
+    return {"message": "已删除"}
+
+@router.delete("/api/admin/products/{pid}/delete-file")
+async def delete_product_file_by_url(pid: int, data: dict, request: Request):
+    await require_admin(request)
+    file_url = data.get("file", "")
+    if file_url and file_url.startswith("/api/image/"):
+        file_path = os.path.join(config.UPLOAD_DIR, file_url.replace("/api/image/", ""))
+        if os.path.exists(file_path):
+            try: os.remove(file_path)
+            except: pass
     return {"message": "已删除"}
 
 @router.put("/api/admin/products/{pid}/blindbox")
@@ -203,7 +237,7 @@ async def update_pool(pid: int, data: dict, request: Request):
     return {"message": "奖池已更新"}
 
 @router.post("/api/admin/upload")
-async def upload_file(request: Request, file: UploadFile = File(...), file_type: str = "image"):
+async def upload_file(request: Request, file: UploadFile = File(...), file_type: str = Form(default="image")):
     await require_admin(request)
     
     # 根据文件类型确定存储位置
@@ -216,26 +250,49 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
     
     os.makedirs(target_dir, exist_ok=True)
     
-    allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico'}
-    max_file_size = 10 * 1024 * 1024
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico', '.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'}
     
-    ext = os.path.splitext(file.filename)[1].lower()
+    # 从系统设置读取上传大小限制
+    with Session(engine) as s:
+        setting = s.query(AppSetting).filter(AppSetting.key == "config_upload_max_size").first()
+        max_file_size = (int(setting.value) if setting else 1024) * 1024 * 1024  # MB转bytes
+    
+    # 获取文件名和扩展名
+    filename = file.filename or "unknown"
+    ext = os.path.splitext(filename)[1].lower()
+    
+    # 检查扩展名
     if ext not in allowed_extensions:
-        raise HTTPException(400, f"不支持的文件类型: {ext}")
+        error_msg = f"不支持的文件类型: '{ext}' (文件名: {filename})，允许的类型: {', '.join(sorted(allowed_extensions))}"
+        print(f"[Upload Error] {error_msg}")
+        raise HTTPException(400, error_msg)
     
-    content = await file.read()
+    # 读取文件内容
+    try:
+        content = await file.read()
+    except Exception as e:
+        error_msg = f"读取文件失败: {str(e)}"
+        print(f"[Upload Error] {error_msg}")
+        raise HTTPException(400, error_msg)
+    
+    # 检查文件大小
     if len(content) > max_file_size:
-        raise HTTPException(400, "文件大小超过限制(最大10MB)")
+        error_msg = f"文件大小超过限制(最大{max_file_size//1024//1024}MB)，当前大小: {len(content) / 1024 / 1024:.1f}MB"
+        print(f"[Upload Error] {error_msg}")
+        raise HTTPException(400, error_msg)
     
+    # 生成文件名
     name = f"{uuid.uuid4().hex}{ext}"
     path = os.path.join(target_dir, name)
     
+    # 保存文件
     with open(path, "wb") as f:
         f.write(content)
     
     # 计算相对路径用于API访问
     rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
     
+    print(f"[Upload Success] {filename} -> {rel_path}")
     return {
         "url": f"/api/image/{rel_path}", 
         "path": path,
@@ -409,7 +466,7 @@ async def compress_temp_files_to_product(pid: int, request: Request, temp_files:
         
         # 清理文件名中的非法字符
         safe_product_name = "".join(c if c.isalnum() or c in "._- " else "_" for c in product.name)
-        zip_name = f"{safe_product_name}_{pid}.zip"
+        zip_name = f"{safe_product_name}.zip"
         zip_path = os.path.join(zip_dir, zip_name)
         
         # 如果没有指定temp_files，就压缩整个temp文件夹
@@ -472,7 +529,7 @@ async def compress_product_files(pid: int, request: Request):
         
         # 清理文件名中的非法字符
         safe_product_name = "".join(c if c.isalnum() or c in "._- " else "_" for c in product.name)
-        zip_name = f"{safe_product_name}_{pid}.zip"
+        zip_name = f"{safe_product_name}.zip"
         zip_path = os.path.join(config.UPLOAD_DIR, "zip_files", zip_name)
         
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:

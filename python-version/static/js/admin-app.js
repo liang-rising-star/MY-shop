@@ -162,7 +162,7 @@ const productForm=ref({
   category_id:0,image_url:'',images:'',video_url:'',
   imageList:[],
   featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,
-  type:'normal',stock:-1,stock_warning:10,max_buy_limit:0,per_user_limit:0,
+  type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,
   delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',
   is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',
   tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true
@@ -196,7 +196,7 @@ function openProductModal(p=null){
       category_id:p.category_id||0,image_url:p.image_url||'',images:p.images||'',video_url:p.video_url||'',
       imageList:urls,
       featured:p.featured||false,is_hot:p.is_hot||false,is_new:p.is_new||false,is_recommend:p.is_recommend||false,is_seckill:p.is_seckill||false,
-      type:p.type||'normal',stock:p.stock||-1,stock_warning:p.stock_warning||10,max_buy_limit:p.max_buy_limit||0,per_user_limit:p.per_user_limit||0,
+      type:p.type||'normal',stock:p.stock||-1,stock_warning:p.stock_warning||10,total_stock:p.total_stock||0,max_buy_limit:p.max_buy_limit||0,per_user_limit:p.per_user_limit||0,
       delivery_type:p.delivery_type||'card_key',file_path:p.file_path||'',file_name:p.file_name||'',file_size:p.file_size||'',auto_delivery_content:p.auto_delivery_content||'',
       is_active:p.is_active!==false,sort_order:p.sort_order||0,seo_title:p.seo_title||'',seo_keywords:p.seo_keywords||'',seo_description:p.seo_description||'',
       tags:p.tags||'',buy_notice:p.buy_notice||'',after_sale_notice:p.after_sale_notice||'',allow_comments:p.allow_comments!==false
@@ -211,7 +211,7 @@ function openProductModal(p=null){
       category_id:0,image_url:'',images:'',video_url:'',
       imageList:[],
       featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,
-      type:'normal',stock:-1,stock_warning:10,max_buy_limit:0,per_user_limit:0,
+      type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,
       delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',
       is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',
       tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true
@@ -357,9 +357,9 @@ async function loadRecommends(){
 function closeProductModal(){showProductModal.value=false;editingProduct.value=null}
 function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price<=0){tst('请输入有效的价格','er');return}d.image_url=d.imageList[0]||'';d.images=d.imageList.join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
 async function deleteProduct(){if(!editingProduct.value)return;if(!(await confirmAsync('确定删除此商品？此操作不可恢复！')))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
-function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;if(available===0)return'empty';if(available<=5)return'low';if(available<=total*0.3)return'medium';return'high'}
-function getStockStatus(p){const available=p.available_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(available<=warning)return'low';return'available'}
-function getStockText(p){const available=p.available_stock||0;if(available===0)return'已售罄';const warning=p.stock_warning||10;if(available<=warning)return'库存紧张';return'有货'}
+function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'high'}
+function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'available'}
+function getStockText(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'已售罄';if(total>0&&available<=total*0.2)return'库存紧张';if(available<=warning)return'库存紧张';return'有货'}
 function refreshAllStocks(){if(refreshingStock.value)return;refreshingStock.value=true;api.rq('GET','/api/products').then(r=>{const oldStocks={};ps.value.forEach(p=>oldStocks[p.id]=p.available_stock);ps.value=r.products||[];ps.value.forEach(p=>{if(oldStocks[p.id]!==undefined&&oldStocks[p.id]!==p.available_stock){stockUpdateTime.value[p.id]=Date.now();setTimeout(()=>{delete stockUpdateTime.value[p.id]},1000)}});refreshingStock.value=false}).catch(()=>{refreshingStock.value=false})}
 function startStockPolling(){if(stockPollInterval.value)return;stockPollInterval.value=setInterval(()=>{if(tb.value==='pd'&&!showProductModal.value&&!showRestockModal.value){refreshAllStocks()}},5000)}
 function stopStockPolling(){if(stockPollInterval.value){clearInterval(stockPollInterval.value);stockPollInterval.value=null}}

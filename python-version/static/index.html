@@ -104,7 +104,7 @@
                 <div class="card-badge" v-if="p.badge">{{ p.badge.text }}</div>
                 <div class="card-badge" v-else-if="p.type!=='normal'">{{p.type==='blindbox'?'盲盒':'限时'}}</div>
                 <div class="card-glow"></div>
-                <div class="card-img"><img v-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
+                <div class="card-img"><template v-if="p.images"><img v-if="p.images.split(',')[0]&&!p.images.split(',')[0].includes('.mp4')" :src="p.images.split(',')[0]" :alt="p.name" @error="$event.target.style.display='none'" /><video v-else-if="p.images.split(',')[0]&&p.images.split(',')[0].includes('.mp4')" :src="p.images.split(',')[0]" muted autoplay loop style="width:100%;height:100%;object-fit:cover" @error="$event.target.style.display='none'"></video><div v-else class="card-placeholder">⬡</div></template><img v-else-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
                 <div class="card-body">
                   <h3>{{ p.name }}</h3>
                   <span class="card-category">{{ p.category?.name }}</span>
@@ -129,7 +129,7 @@
                 <div class="card-badge" v-if="p.badge">{{ p.badge.text }}</div>
                 <div class="card-badge" v-else-if="p.type!=='normal'">{{p.type==='blindbox'?'🎁盲盒':'⏰限时'}}</div>
                 <div class="card-glow"></div>
-                <div class="card-img"><img v-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
+                <div class="card-img"><template v-if="p.images"><img v-if="p.images.split(',')[0]&&!p.images.split(',')[0].includes('.mp4')" :src="p.images.split(',')[0]" :alt="p.name" @error="$event.target.style.display='none'" /><video v-else-if="p.images.split(',')[0]&&p.images.split(',')[0].includes('.mp4')" :src="p.images.split(',')[0]" muted autoplay loop style="width:100%;height:100%;object-fit:cover" @error="$event.target.style.display='none'"></video><div v-else class="card-placeholder">⬡</div></template><img v-else-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
                 <div class="card-body">
                   <h3>{{ p.name }}</h3>
                   <span class="card-category">{{ p.category?.name }}</span>
@@ -236,7 +236,7 @@
                 <div class="card-badge" v-if="p.badge">{{ p.badge.text }}</div>
                 <div class="card-badge" v-else-if="p.type!=='normal'">{{p.type==='blindbox'?'🎁盲盒':'⏰限时'}}</div>
                 <div class="card-glow"></div>
-                <div class="card-img"><img v-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
+                <div class="card-img"><template v-if="p.images"><img v-if="p.images.split(',')[0]&&!p.images.split(',')[0].includes('.mp4')" :src="p.images.split(',')[0]" :alt="p.name" @error="$event.target.style.display='none'" /><video v-else-if="p.images.split(',')[0]&&p.images.split(',')[0].includes('.mp4')" :src="p.images.split(',')[0]" muted autoplay loop style="width:100%;height:100%;object-fit:cover" @error="$event.target.style.display='none'"></video><div v-else class="card-placeholder">⬡</div></template><img v-else-if="p.image_url" :src="p.image_url" :alt="p.name" @error="$event.target.style.display='none'" /><div v-else class="card-placeholder">⬡</div></div>
                 <div class="card-body"><h3>{{ p.name }}</h3><span class="card-category">{{ p.category?.name }}</span><div class="card-footer">
                     <span v-if="p.is_discount_active" class="price" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
                       <s style="color:#ff3366">¥{{ p.price.toFixed(2) }}</s>
@@ -252,11 +252,29 @@
 
         <section v-if="page==='detail'" key="detail" class="page">
           <div class="section" v-if="detail">
-            <button class="btn-back" @click="navigate('products')">← 返回商店</button>
+             <button class="btn-back" @click="navigate('products')">← 返回商店</button>
             <div class="detail">
-              <div class="detail-img">
-                <img v-if="detail.product.image_url" :src="detail.product.image_url" :alt="detail.product.name" @error="$event.target.style.display='none'" />
-                <div v-else class="detail-placeholder">⬡</div>
+                <div class="detail-media-area">
+                <div class="detail-img" @mouseenter="pauseAutoSlide" @mouseleave="resumeAutoSlide">
+                  <template v-if="detailMediaList.length>0">
+                    <div style="position:relative;width:100%;height:100%">
+                      <transition name="fade">
+                        <img v-if="detailMediaList[detailMediaIdx]&&!detailMediaList[detailMediaIdx].includes('.mp4')" :key="'img-'+detailMediaIdx" :src="detailMediaList[detailMediaIdx]" :alt="detail.product.name" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0" @error="$event.target.style.display='none'" />
+                        <video v-else-if="detailMediaList[detailMediaIdx]" :key="'vid-'+detailMediaIdx" ref="detailVideoRef" :src="detailMediaList[detailMediaIdx]" controls preload="metadata" playsinline style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0"></video>
+                      </transition>
+                      <button v-if="detailMediaList.length>1" @click="prevMedia" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.4);color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2" @mouseenter="$event.target.style.background='rgba(0,0,0,0.7)'" @mouseleave="$event.target.style.background='rgba(0,0,0,0.4)'">‹</button>
+                      <button v-if="detailMediaList.length>1" @click="nextMedia" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.4);color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2" @mouseenter="$event.target.style.background='rgba(0,0,0,0.7)'" @mouseleave="$event.target.style.background='rgba(0,0,0,0.4)'">›</button>
+                    </div>
+                  </template>
+                  <img v-else-if="detail.product.image_url" :src="detail.product.image_url" :alt="detail.product.name" style="width:100%;height:100%;object-fit:cover;border-radius:12px" @error="$event.target.style.display='none'" />
+                  <div v-else class="detail-placeholder">⬡</div>
+                </div>
+                <div v-if="detailMediaList.length>1" style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding:4px 0;justify-content:center">
+                  <div v-for="(m,i) in detailMediaList" :key="i" @click="selectMedia(i)" style="width:56px;height:56px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0;border:2px solid transparent;transition:.2s" :style="i===detailMediaIdx?'border-color:var(--primary)':'opacity:0.6'">
+                    <img v-if="!m.includes('.mp4')" :src="m" style="width:100%;height:100%;object-fit:cover" />
+                    <div v-else style="width:100%;height:100%;background:#333;display:flex;align-items:center;justify-content:center"><i class="fas fa-play" style="color:#fff;font-size:10px"></i></div>
+                  </div>
+                </div>
               </div>
               <div class="detail-info">
                 <h2 class="detail-name">{{ detail.product.name }}</h2>
@@ -502,7 +520,7 @@
               <div class="uc-order-filters">
                 <button v-for="s in orderStatuses" :key="s.k" :class="{active:orderFilter===s.k}" @click="orderFilter=s.k;loadUCOrders()" class="uc-filter-btn">{{ s.l }}</button>
               </div>
-              <div class="uc-order-list">
+               <div class="uc-order-list">
                 <div v-for="o in ucOrders" :key="o.id" class="uc-order-item">
                   <div class="uc-order-top">
                     <span class="uc-order-name">{{ o.product_name }} x{{ o.quantity }}</span>
@@ -511,6 +529,12 @@
                   <div class="uc-order-mid">
                     <span>订单号: {{ o.order_no }}</span>
                     <span>¥{{ o.final_price.toFixed(2) }}</span>
+                    <span v-if="o.payment_method" style="font-size:0.8rem;color:var(--dim)">
+                      <i v-if="o.payment_method==='balance'" class="fas fa-wallet"></i>
+                      <i v-if="o.payment_method==='alipay'" class="fab fa-alipay" style="color:#1677ff"></i>
+                      <i v-if="o.payment_method==='wxpay'" class="fab fa-weixin" style="color:#07c160"></i>
+                      {{ {balance:'余额',alipay:'支付宝',wxpay:'微信',qqpay:'QQ钱包',mazf:'码支付',yishoumi:'易收米',usdt:'USDT'}[o.payment_method]||o.payment_method }}
+                    </span>
                   </div>
                   <div v-if="o.card_keys?.length" class="uc-order-keys">
                     <div v-for="k in o.card_keys" :key="k.id" class="uc-key-row">

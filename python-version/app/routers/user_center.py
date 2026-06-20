@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from app.database import engine
-from app.models import User, Order, CardKey, RechargeOrder
+from app.models import User, Order, CardKey, RechargeOrder, PaymentLog
 from app.auth import get_current_user, hash_password, verify_password
 
 router = APIRouter()
@@ -134,11 +134,19 @@ async def user_orders(request: Request, status: str = "", page: int = 1):
         if status: q = q.filter(Order.status == status)
         total = q.count()
         orders = q.order_by(Order.created_at.desc()).offset((page-1)*20).limit(20).all()
+        # 获取每个订单的支付方式
+        order_ids = [o.id for o in orders]
+        payment_methods = {}
+        if order_ids:
+            logs = s.query(PaymentLog).filter(PaymentLog.order_id.in_(order_ids), PaymentLog.status == "success").all()
+            for log in logs:
+                if log.order_id not in payment_methods:
+                    payment_methods[log.order_id] = log.method
         return {"total": total, "page": page, "orders": [{
             "id": o.id, "order_no": o.order_no, "product_name": o.product.name if o.product else "",
             "quantity": o.quantity, "total_price": o.total_price, "discount": o.discount,
             "final_price": o.final_price, "status": o.status, "delivery_type": o.delivery_type,
-            "created_at": str(o.created_at),
+            "created_at": str(o.created_at), "payment_method": payment_methods.get(o.id),
             "card_keys": [{c.name: getattr(k, c.name) for c in k.__table__.columns} for k in o.card_keys]
         } for o in orders]}
 

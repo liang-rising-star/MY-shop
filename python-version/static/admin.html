@@ -216,6 +216,8 @@ input:checked + .slider:before{transform:translateX(20px)}
 .stock-total{color:var(--dim);font-size:0.85rem}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 .stock-updated{animation:pulse 0.5s ease}
+.highlight-flash{animation:flashHighlight 0.6s ease 5}
+@keyframes flashHighlight{0%,100%{background:transparent}50%{background:rgba(0,240,255,0.15)}}
 .restock-section{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:1.5rem;margin-top:1rem}
 .restock-info{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
 .restock-product{display:flex;align-items:center;gap:1rem}
@@ -350,7 +352,7 @@ input:checked + .slider:before{transform:translateX(20px)}
         <button class="btn btn-p btn-sm" @click="openProductModal()">+ 添加商品</button>
       </div></div>
       <div class="bd tw">
-        <table><thead><tr><th>ID</th><th>名称</th><th>价格</th><th>类型</th><th style="text-align:left">剩余库存</th><th>状态</th><th style="text-align:left">操作</th></tr></thead>
+        <table><thead><tr><th>ID</th><th>名称</th><th>价格</th><th>类型</th><th style="text-align:left">剩余库存</th><th>已售出</th><th>状态</th><th>上架</th><th style="text-align:left">操作</th></tr></thead>
         <tbody><tr v-for="p in ps" :key="p.id">
           <td>{{ p.id }}</td>
           <td><strong>{{ p.name }}</strong></td>
@@ -363,7 +365,9 @@ input:checked + .slider:before{transform:translateX(20px)}
               <span class="stock-total">{{ p.total_stock||0 }}</span>
             </div>
           </td>
+          <td><span style="color:var(--warning);font-weight:600">{{ p.total_sold||0 }}</span></td>
           <td><span class="stock-badge" :class="getStockStatus(p)">{{ getStockText(p) }}</span></td>
+          <td><div class="sw" style="display:inline-flex"><div class="toggle" :class="{on:p.is_active!==false}" @click="toggleProductActive(p)" style="cursor:pointer"></div></div></td>
           <td class="ac" style="text-align:left">
             <button class="btn btn-sm btn-a" @click="openProductModal(p)">编辑</button>
             <button class="btn btn-sm btn-p" @click="openRestockModal(p)"><i class="fas fa-plus"></i> 补货</button>
@@ -487,9 +491,33 @@ input:checked + .slider:before{transform:translateX(20px)}
         </select>
       </div></div>
       <div class="bd tw">
-        <table><thead><tr><th>订单号</th><th>商品</th><th>金额</th><th>状态</th><th>时间</th><th style="text-align:left">操作</th></tr></thead>
-        <tbody><tr v-for="o in filteredOrders" :key="o.id"><td style="font-family:monospace;font-size:.8rem">#{{ o.order_no }}</td><td>{{ o.product?.name||'-' }}</td><td>¥{{ o.final_price.toFixed(2) }}</td><td><span class="bg" :class="o.status">{{ stTxt(o.status) }}</span></td><td style="color:var(--dim);font-size:.8rem">{{ fm(o.created_at) }}</td><td style="text-align:left">
-          <button v-if="o.status==='paid'" class="btn btn-sm btn-p" @click="completeOrder(o)">完成</button>
+        <table><thead><tr><th>用户</th><th>订单号</th><th>商品</th><th>数量</th><th>金额</th><th>支付方式</th><th>状态</th><th>时间</th><th style="text-align:left">操作</th></tr></thead>
+        <tbody><tr v-for="o in filteredOrders" :key="o.id">
+          <td style="cursor:pointer" @click="goToUser(o.user?.id)">
+            <div style="display:flex;align-items:center;gap:0.4rem">
+              <img v-if="o.user?.avatar" :src="o.user.avatar" style="width:24px;height:24px;border-radius:50%;object-fit:cover" />
+              <div v-else style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--neon-magenta));display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600">{{ (o.user?.username||'U').charAt(0).toUpperCase() }}</div>
+              <div><div style="font-size:0.8rem">{{ o.user?.username||'-' }}</div></div>
+            </div>
+          </td>
+          <td style="font-family:monospace;font-size:.8rem">#{{ o.order_no }}</td>
+          <td>{{ o.product?.name||'-' }}</td>
+          <td>{{ o.quantity }}</td>
+          <td>¥{{ o.final_price.toFixed(2) }}</td>
+          <td><span v-if="o.payment_method" style="display:inline-flex;align-items:center;gap:0.3rem;font-size:0.8rem">
+            <i v-if="o.payment_method==='balance'" class="fas fa-wallet" style="color:var(--primary)"></i>
+            <i v-if="o.payment_method==='alipay'" class="fab fa-alipay" style="color:#1677ff"></i>
+            <i v-if="o.payment_method==='wxpay'" class="fab fa-weixin" style="color:#07c160"></i>
+            <i v-if="o.payment_method==='qqpay'" class="fab fa-qq" style="color:#12b7f5"></i>
+            <i v-if="o.payment_method==='mazf'" class="fas fa-qrcode" style="color:#ffaa00"></i>
+            <i v-if="o.payment_method==='yishoumi'" class="fas fa-money-check" style="color:#52c41a"></i>
+            <i v-if="o.payment_method==='usdt'" class="fab fa-bitcoin" style="color:#26a17b"></i>
+            {{ {balance:'余额',alipay:'支付宝',wxpay:'微信',qqpay:'QQ钱包',mazf:'码支付',yishoumi:'易收米',usdt:'USDT'}[o.payment_method]||o.payment_method }}
+          </span><span v-else style="color:var(--dim);font-size:0.8rem">-</span></td>
+          <td><span class="bg" :class="o.status">{{ stTxt(o.status) }}</span></td><td style="color:var(--dim);font-size:.8rem">{{ fm(o.created_at) }}</td><td style="text-align:left">
+          <button v-if="o.status==='paid'&&o.delivery_type==='manual'&&!o.delivery_content" class="btn btn-sm btn-p" @click="openDeliverModal(o)">发货</button>
+          <button v-if="o.status==='paid'&&o.delivery_type==='manual'&&o.delivery_content" class="btn btn-sm btn-w" @click="openDeliverModal(o)">修改</button>
+          <button v-if="o.status==='paid'&&o.delivery_type!=='manual'" class="btn btn-sm btn-p" @click="completeOrder(o)">完成</button>
           <button v-if="o.status==='pending'" class="btn btn-sm btn-dr" @click="cancelOrder(o)">取消</button>
         </td></tr></tbody></table>
         <div v-if="!filteredOrders.length" style="text-align:center;color:var(--dim);padding:2rem">
@@ -530,10 +558,10 @@ input:checked + .slider:before{transform:translateX(20px)}
         </div>
       </div>
       <div class="bd tw">
-        <table><thead><tr><th>头像</th><th>UUID</th><th>用户名</th><th>等级</th><th>积分</th><th>余额</th><th>角色</th><th>注册时间</th><th style="text-align:left">操作</th></tr></thead>
-        <tbody><tr v-for="u in filteredUsers" :key="u.id">
-          <td><img v-if="u.avatar" :src="u.avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover" /><div v-else style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--neon-magenta));display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.8rem;font-weight:600">{{ (u.username||'U').charAt(0).toUpperCase() }}</div></td>
+        <table><thead><tr><th>UUID</th><th>头像</th><th>用户名</th><th>等级</th><th>积分</th><th>余额</th><th>角色</th><th>注册时间</th><th style="text-align:left">操作</th></tr></thead>
+        <tbody><tr v-for="u in filteredUsers" :key="u.id" :data-user-id="u.id">
           <td style="font-family:monospace;font-size:0.8rem;color:var(--dim)">{{ u.uuid||'-' }}</td>
+          <td><img v-if="u.avatar" :src="u.avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover" /><div v-else style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--neon-magenta));display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.8rem;font-weight:600">{{ (u.username||'U').charAt(0).toUpperCase() }}</div></td>
           <td>{{ u.username }} <span v-if="u.is_super_admin" style="color:var(--warning);font-size:0.7rem" title="超级管理员">👑</span></td>
           <td>Lv{{ u.level }}</td><td>{{ u.points }}</td><td>¥{{ (u.balance||0).toFixed(2) }}</td>
           <td><span class="bg" :class="u.status==='banned'?'role-banned':(u.is_admin?(u.is_super_admin?'role-super':'role-admin'):'role-normal')">{{ u.status==='banned'?'封禁用户':(u.is_super_admin?'超级管理员':(u.is_admin?'管理员':'普通用户')) }}</span></td>
@@ -839,6 +867,7 @@ input:checked + .slider:before{transform:translateX(20px)}
           <div class="fr"><div class="sw"><label>允许注册</label><div class="toggle" :class="{on:st.allow_register}" @click="st.allow_register=!st.allow_register"></div></div>
             <div class="sw"><label>店铺关闭</label><div class="toggle" :class="{on:st.shop_closed}" @click="st.shop_closed=!st.shop_closed"></div></div>
             <div class="sw"><label>维护模式</label><div class="toggle" :class="{on:st.maintenance_mode}" @click="st.maintenance_mode=!st.maintenance_mode"></div></div></div>
+          <div style="margin-top:1rem"><div class="fg"><label>上传文件大小限制(MB)</label><select v-model.number="st.upload_max_size" style="width:120px"><option :value="10">10MB</option><option :value="50">50MB</option><option :value="100">100MB</option><option :value="500">500MB</option><option :value="1024">1GB</option></select></div></div>
         </div>
         <div style="margin-top:1rem"><button class="btn btn-p" @click="saveSt"><i class="fas fa-save"></i> 保存设置</button></div>
       </div>
@@ -1074,6 +1103,30 @@ input:checked + .slider:before{transform:translateX(20px)}
       </div>
       
       <div class="form-section">
+        <h3><i class="fas fa-photo-video"></i> 商品展示</h3>
+        <label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">上传图片或视频（支持拖动排序，首张为主图）</label>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem">
+          <div v-for="(media, idx) in productForm.mediaList" :key="idx" draggable="true" @dragstart="dragMediaStart(idx,$event)" @dragover.prevent="dragMediaOver(idx,$event)" @drop.prevent="dragMediaDrop(idx,$event)" @dragend="dragMediaEnd" style="width:80px;height:80px;border-radius:6px;overflow:hidden;position:relative;border:1px solid var(--border);flex-shrink:0">
+            <img v-if="!media.includes('.mp4')&&!media.includes('.webm')&&!media.includes('.mov')" :src="media" style="width:100%;height:100%;object-fit:cover;pointer-events:none" />
+            <div v-else style="width:100%;height:100%;position:relative;pointer-events:none">
+              <video :src="media" style="width:100%;height:100%;object-fit:cover" muted></video>
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:rgba(0,0,0,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="fas fa-play" style="color:#fff;font-size:8px;margin-left:2px"></i></div>
+            </div>
+            <button @click="removeProductMedia(idx)" type="button" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+          </div>
+          <div class="image-upload-box" @click="triggerMediaUpload" style="width:80px;height:80px;flex-shrink:0">
+            <i class="fas fa-plus"></i>
+            <span style="font-size:0.65rem">媒体文件</span>
+          </div>
+        </div>
+        <input ref="mediaFileInput" type="file" accept="image/*,video/*" multiple @change="handleMediaUpload" style="display:none" />
+        <div v-if="uploadProgress>=0" style="margin-top:0.5rem;background:var(--bg);border-radius:4px;overflow:hidden;height:20px;position:relative">
+          <div :style="{width:uploadProgress+'%',height:'100%',background:'var(--primary)',transition:'width 0.3s',borderRadius:'4px'}"></div>
+          <span style="position:absolute;top:0;left:0;right:0;text-align:center;line-height:20px;font-size:0.75rem;color:#fff;font-weight:600">{{ uploadProgress }}%</span>
+        </div>
+      </div>
+      
+      <div class="form-section">
         <h3><i class="fas fa-tag"></i> 定价与折扣</h3>
         <div style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center">
           <label @click="productForm.discount_mode='percent'" style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:.2s;white-space:nowrap" :style="productForm.discount_mode==='percent'?'border-color:var(--primary);background:rgba(0,240,255,0.05)':''">
@@ -1098,22 +1151,21 @@ input:checked + .slider:before{transform:translateX(20px)}
         <h3><i class="fas fa-truck"></i> 发货设置</h3>
         <div class="form-grid">
           <div class="fg"><label>发货方式</label><select v-model="productForm.delivery_type"><option value="card_key">卡密自动发货</option><option value="file">文件自动发货</option><option value="manual">手动发货</option></select></div>
-          <div class="fg"><label>库存预警数量</label><input v-model.number="productForm.stock_warning" type="number" placeholder="库存低于此数提醒" /></div>
         </div>
         <div v-if="productForm.delivery_type==='file'" style="margin-top:1rem">
-          <div class="file-upload-area" @click="$refs.fileInput.click()">
+          <div class="file-upload-area" @click="handleFileAreaClick">
             <i class="fas fa-cloud-upload-alt" style="font-size:2rem;margin-bottom:0.5rem"></i>
             <p style="font-size:0.85rem;margin-bottom:0.25rem">点击上传文件，或拖拽文件到此处</p>
             <p style="font-size:0.75rem;color:var(--dim)">支持多文件上传，上传后会自动打包成ZIP</p>
             <input ref="fileInput" type="file" multiple @change="handleFileUpload" style="display:none" />
           </div>
-          <div class="file-list" v-if="productFiles.length>0">
+            <div class="file-list" v-if="productFiles.length>0">
             <div class="file-item" v-for="(f,idx) in productFiles" :key="idx">
               <div class="file-info">
                 <div class="file-icon"><i class="fas fa-file"></i></div>
                 <div>
-                  <div class="file-name">{{ f.name }}</div>
-                  <div class="file-size">{{ f.size }}</div>
+                  <div class="file-name">{{ f.file_name||f.name }}</div>
+                  <div class="file-size">{{ f.file_size||f.size }}</div>
                 </div>
               </div>
               <div class="file-action">
@@ -1131,40 +1183,30 @@ input:checked + .slider:before{transform:translateX(20px)}
               <i class="fas fa-check-circle" style="color:var(--success)"></i> 已生成压缩包: {{ productForm.file_name }} ({{ productForm.file_size }})
             </div>
           </div>
-          <div class="form-grid" style="margin-top:1rem">
-            <div class="fg"><label>文件名称</label><input v-model="productForm.file_name" placeholder="显示给用户的文件名" /></div>
-            <div class="fg"><label>文件路径</label><input v-model="productForm.file_path" placeholder="文件下载链接或路径" /></div>
-            <div class="fg"><label>文件大小</label><input v-model="productForm.file_size" placeholder="例如: 2.5MB" /></div>
-          </div>
+          <div v-if="productForm.file_path" style="margin-top:0.5rem;font-size:0.85rem;color:var(--dim)">
+              <i class="fas fa-check-circle" style="color:var(--success)"></i> 已生成: {{ productForm.file_name }} ({{ productForm.file_size }})
+            </div>
         </div>
         <div v-if="productForm.delivery_type==='manual'" style="margin-top:1rem">
           <label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">自动发货内容</label>
           <textarea v-model="productForm.auto_delivery_content" placeholder="用户付款后自动发送的内容..." style="min-height:80px"></textarea>
         </div>
       </div>
-      
+
+      <div class="form-section">
+        <h3><i class="fas fa-boxes"></i> 库存管理</h3>
+        <div class="form-grid">
+          <div class="fg"><label>总库存（0为不限制）</label><input v-model.number="productForm.total_stock" type="number" min="0" placeholder="0表示不限制，补货时最多补满此数量" /></div>
+          <div class="fg"><label>库存预警数量</label><input v-model.number="productForm.stock_warning" type="number" placeholder="库存低于此数提醒" /></div>
+        </div>
+      </div>
+
       <div class="form-section">
         <h3><i class="fas fa-shopping-cart"></i> 购买限制</h3>
         <div class="form-grid">
           <div class="fg"><label>总购买限制(0不限)</label><input v-model.number="productForm.max_buy_limit" type="number" placeholder="0表示不限购" /></div>
           <div class="fg"><label>单用户限购(0不限)</label><input v-model.number="productForm.per_user_limit" type="number" placeholder="每个用户最多买" /></div>
         </div>
-      </div>
-      
-      <div class="form-section">
-        <h3><i class="fas fa-image"></i> 商品图片</h3>
-        <label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">点击上传图片（支持jpg、png、gif等，首张为主图）</label>
-        <div class="image-upload-grid">
-          <div v-for="(img, idx) in productForm.imageList" :key="idx" class="image-card">
-            <img :src="img" />
-            <button class="image-del" @click="removeProductImage(idx)" type="button">&times;</button>
-          </div>
-          <div class="image-upload-box" @click="triggerImageUpload">
-            <i class="fas fa-plus"></i>
-            <span>上传图片</span>
-          </div>
-        </div>
-        <input ref="imageFileInput" type="file" accept="image/*" multiple @change="handleImageUpload" style="display:none" />
       </div>
       
       <div v-if="productForm.type==='blindbox'" class="form-section">
@@ -1174,14 +1216,6 @@ input:checked + .slider:before{transform:translateX(20px)}
           <div class="fg"><label>显示概率</label>
             <select v-model="productForm.show_odds"><option :value="true">显示</option><option :value="false">隐藏</option></select>
           </div>
-        </div>
-      </div>
-      
-      <div class="form-section">
-        <h3><i class="fas fa-video"></i> 视频设置</h3>
-        <div>
-          <label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">视频URL(可选)</label>
-          <input v-model="productForm.video_url" placeholder="商品视频链接" />
         </div>
       </div>
       
@@ -1224,15 +1258,11 @@ input:checked + .slider:before{transform:translateX(20px)}
         <div style="margin-top:1rem" class="form-grid">
           <div class="fg"><label>排序权重</label><input v-model.number="productForm.sort_order" type="number" placeholder="数值越大越靠前" /></div>
         </div>
-      </div>
-      
-      <div class="form-section">
+    </div>
+    <div class="form-section">
         <h3><i class="fas fa-toggle-on"></i> 商品状态</h3>
-        <div style="display:flex;gap:1rem;flex-wrap:wrap">
-          <div class="sw"><div class="toggle" :class="{on:productForm.is_active}" @click="productForm.is_active=!productForm.is_active"></div><label>上架销售</label></div>
-          <div class="sw"><div class="toggle" :class="{on:productForm.allow_comments}" @click="productForm.allow_comments=!productForm.allow_comments"></div><label>允许评论</label></div>
-        </div>
-      </div>
+        <div style="display:flex;align-items:center;gap:0.5rem"><div class="sw"><div class="toggle" :class="{on:productForm.allow_comments}" @click="productForm.allow_comments=!productForm.allow_comments"></div></div><label style="cursor:pointer">允许评论</label></div>
+    </div>
     </div>
     <div class="modal-footer">
       <button v-if="editingProduct" class="btn btn-dr" @click="deleteProduct">删除</button>
@@ -1377,6 +1407,21 @@ MNOP-1111-QRST-2222" style="min-height:150px;font-family:monospace;font-size:0.9
 </div>
 </template>
 <div class="tc"><div v-for="t in ts" :key="t.id" class="tt" :class="t.ty">{{ t.msg }}</div></div>
+<div v-if="showDeliverModal" class="modal-overlay" @click.self="showDeliverModal=false">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><h2>发货 - #{{ deliverOrder?.order_no }}</h2><button class="modal-close" @click="showDeliverModal=false">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-section">
+        <h3><i class="fas fa-truck"></i> 发货内容</h3>
+        <textarea v-model="deliverContent" placeholder="请输入发货内容（如：卡密、下载链接、激活码等）" style="min-height:150px;font-family:monospace"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-a" @click="showDeliverModal=false">取消</button>
+      <button class="btn btn-p" @click="submitDeliver">{{ deliverOrder?.delivery_content ? '保存修改' : '确认发货' }}</button>
+    </div>
+  </div>
+</div>
 <div v-if="showConfirmModal" class="confirm-overlay" @click.self="confirmResolveFn(false)">
   <div class="confirm-dialog">
     <div class="confirm-header"><h3><i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i> 确认操作</h3></div>
@@ -1416,7 +1461,8 @@ const api={
   tk:token.value,
   async rq(m,p,b){
     const h={'Content-Type':'application/json'}
-    if(this.tk)h['Authorization']='Bearer '+this.tk
+    const tk=token.value;
+    if(tk)h['Authorization']='Bearer '+tk
     const r=await fetch(p,{method:m,headers:h,body:b?JSON.stringify(b):undefined})
     if(r.status==401){
       try{localStorage.removeItem('admin_token')}catch(e){}
@@ -1433,6 +1479,21 @@ const api={
     const d=await r.json()
     if(!r.ok)throw new Error(d.detail||d.error||'请求失败')
     return d
+  },
+  async upload(fd){
+    const h={};
+    const tk=token.value;
+    if(tk)h['Authorization']='Bearer '+tk;
+    const r=await fetch('/api/admin/upload',{method:'POST',headers:h,body:fd});
+    if(r.status==401){
+      try{localStorage.removeItem('admin_token')}catch(e){}
+      document.cookie='admin_token=;path=/;max-age=0'
+      window.location.href='/admin-login?msg='+encodeURIComponent('登录已失效，请重新登录')
+      throw new Error('登录已过期')
+    }
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||'上传失败');
+    return d;
   }
 }
 function initParticles(theme='cyberpunk'){
@@ -1546,7 +1607,7 @@ async function changeTheme(theme){
 const ps=ref([]),or=ref([]),us=ref([]),cs=ref([]),ct=ref([]),ks=ref([]),da=ref({})
 const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'})
 const selectedKeys=ref([])
-const showProductModal=ref(false),editingProduct=ref(null),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
+const showProductModal=ref(false),editingProduct=ref(null),fileInput=ref(null),mediaFileInput=ref(null),dragIdx=ref(-1),dragEl=ref(null),uploadProgress=ref(-1),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],mediaList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
 const productFiles=ref([])
 const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),quickGenerateCount=ref(100)
 const refreshingStock=ref(false),stockUpdateTime=ref({}),stockPollInterval=ref(null)
@@ -1566,16 +1627,17 @@ async function batchDeleteKeys(){
 function openProductModal(p){
   if(p){
     editingProduct.value=p.id;
-    const urls=p.images?p.images.split(',').filter(u=>u.trim()):(p.image_url?[p.image_url]:[]);
+    const mediaItems=p.images?p.images.split(',').filter(u=>u.trim()):(p.image_url?[p.image_url]:[]);
+    if(p.video_url)mediaItems.push(p.video_url);
     productForm.value={
       name:p.name||'',short_description:p.short_description||'',description:p.description||'',content:p.content||'',
       price:p.price||0,original_price:p.original_price,cost_price:p.cost_price,discount:p.discount||0,
       discount_mode:p.discount_mode||(p.discount_price?'fixed':(p.discount_percent?'percent':'none')),discount_percent:p.discount_percent||0,
       discount_price:p.discount_price,discount_start:p.discount_start||'',discount_end:p.discount_end||'',
       category_id:p.category_id||0,image_url:p.image_url||'',images:p.images||'',video_url:p.video_url||'',
-      imageList:urls,
+      imageList:mediaItems,mediaList:[...mediaItems],
       featured:p.featured||false,is_hot:p.is_hot||false,is_new:p.is_new||false,is_recommend:p.is_recommend||false,is_seckill:p.is_seckill||false,
-      type:p.type||'normal',stock:p.stock||-1,stock_warning:p.stock_warning||10,max_buy_limit:p.max_buy_limit||0,per_user_limit:p.per_user_limit||0,
+      type:p.type||'normal',stock:p.stock||-1,stock_warning:p.stock_warning||10,total_stock:p.total_stock||0,max_buy_limit:p.max_buy_limit||0,per_user_limit:p.per_user_limit||0,
       delivery_type:p.delivery_type||'card_key',file_path:p.file_path||'',file_name:p.file_name||'',file_size:p.file_size||'',auto_delivery_content:p.auto_delivery_content||'',
       is_active:p.is_active!==false,sort_order:p.sort_order||0,seo_title:p.seo_title||'',seo_keywords:p.seo_keywords||'',seo_description:p.seo_description||'',
       tags:p.tags||'',buy_notice:p.buy_notice||'',after_sale_notice:p.after_sale_notice||'',allow_comments:p.allow_comments!==false
@@ -1588,9 +1650,9 @@ function openProductModal(p){
       price:0,original_price:null,cost_price:null,discount:0,
       discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',
       category_id:0,image_url:'',images:'',video_url:'',
-      imageList:[],
+      imageList:[],mediaList:[],
       featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,
-      type:'normal',stock:-1,stock_warning:10,max_buy_limit:0,per_user_limit:0,
+      type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,
       delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',
       is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',
       tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true
@@ -1639,27 +1701,61 @@ function removeProductFile(idx){
     tst('文件已删除','ok');
   }).catch(e=>tst(e.message,'er'));
 }
-function triggerImageUpload(){imageFileInput.value?.click()}
-async function handleImageUpload(e){
+function handleFileAreaClick(){fileInput.value?.click()}
+function triggerMediaUpload(){mediaFileInput.value?.click()}
+async function handleMediaUpload(e){
   const files=e.target.files;
   if(!files.length)return;
+  const maxSize=(st.value.upload_max_size||1024)*1024*1024;
   for(const file of files){
-    const fd=new FormData();
-    fd.append('file',file);
-    fd.append('file_type','product_image');
+    if(file.size>maxSize){
+      tst('文件 '+file.name+' 太大('+Math.round(file.size/1024/1024)+'MB)，最大支持'+Math.round(maxSize/1024/1024)+'MB','er');
+      continue;
+    }
+    uploadProgress.value=0;
     try{
-      const h={};
-      if(token.value)h['Authorization']='Bearer '+token.value;
-      const r=await fetch('/api/admin/upload',{method:'POST',headers:h,body:fd});
-      const d=await r.json();
-      if(!r.ok) throw new Error(d.detail||'上传失败');
-      productForm.value.imageList.push(d.url);
-      tst('图片上传成功','ok');
-    }catch(e){tst(e.message,'er')}
+      const d=await new Promise((resolve,reject)=>{
+        const fd=new FormData();
+        fd.append('file',file);
+        fd.append('file_type','product_image');
+        const xhr=new XMLHttpRequest();
+        xhr.open('POST','/api/admin/upload');
+        const tk=token.value;
+        if(tk)xhr.setRequestHeader('Authorization','Bearer '+tk);
+        xhr.upload.onprogress=function(ev){if(ev.lengthComputable)uploadProgress.value=Math.round(ev.loaded/ev.total*100)};
+        xhr.onload=function(){
+          if(xhr.status>=200&&xhr.status<300){
+            try{resolve(JSON.parse(xhr.responseText))}catch(e){reject(new Error('解析响应失败'))}
+          }else if(xhr.status===401){
+            try{localStorage.removeItem('admin_token')}catch(e){}
+            document.cookie='admin_token=;path=/;max-age=0'
+            window.location.href='/admin-login?msg='+encodeURIComponent('登录已失效，请重新登录')
+            reject(new Error('登录已过期'))
+          }else{
+            try{const d=JSON.parse(xhr.responseText);reject(new Error(d.detail||'上传失败'))}catch(e){reject(new Error('上传失败: HTTP '+xhr.status))}
+          }
+        };
+        xhr.onerror=function(){reject(new Error('网络错误'))};
+        xhr.send(fd);
+      });
+      productForm.value.mediaList.push(d.url);
+      tst('上传成功: '+file.name,'ok');
+    }catch(err){tst(err.message,'er')}
+    uploadProgress.value=-1;
   }
   e.target.value='';
 }
-function removeProductImage(idx){productForm.value.imageList.splice(idx,1)}
+async function removeProductMedia(idx){
+  const url=productForm.value.mediaList[idx];
+  productForm.value.mediaList.splice(idx,1);
+  if(url&&url.startsWith('/api/image/')&&editingProduct.value){
+    try{await api.rq('DELETE','/api/admin/products/'+editingProduct.value+'/delete-file',{file:url})}catch(e){}
+  }
+}
+function dragMediaStart(idx,ev){dragIdx.value=idx;ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',''+idx)}
+function dragMediaOver(idx,ev){if(ev)ev.preventDefault();if(dragIdx.value<0||dragIdx.value===idx)return;const arr=[...productForm.value.mediaList];const item=arr.splice(dragIdx.value,1)[0];arr.splice(idx,0,item);productForm.value.mediaList=arr;dragIdx.value=idx}
+function dragMediaDrop(idx,ev){if(ev)ev.preventDefault();dragIdx.value=-1}
+function dragMediaEnd(){dragIdx.value=-1}
 function triggerEventImageUpload(){eventImageFileInput.value?.click()}
 async function handleEventImageUpload(e){
   const files=e.target.files;
@@ -1734,14 +1830,15 @@ async function loadRecommends(){
   }catch(e){console.error(e);}
 }
 function closeProductModal(){showProductModal.value=false;editingProduct.value=null}
-function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);d.image_url=d.imageList[0]||'';d.images=d.imageList.join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
+function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=imgs[0]||d.mediaList[0]||'';d.images=imgs.join(',');d.video_url=vids[0]||'';const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
 async function deleteProduct(){if(!editingProduct.value)return;if(!(await confirmAsync('确定删除此商品？此操作不可恢复！')))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
-function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;if(total===0||available===0)return'empty';const pct=available/total;if(pct<0.2)return'low';return'high'}
-function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;if(total===0||available===0)return'empty';const pct=available/total;if(pct<0.2)return'low';return'available'}
-function getStockText(p){const available=p.available_stock||0;const total=p.total_stock||0;if(total===0||available===0)return'已售罄';const pct=available/total;if(pct<0.2)return'库存紧张';return'有货'}
+function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'high'}
+function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'available'}
+function getStockText(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'已售罄';if(total>0&&available<=total*0.2)return'库存紧张';if(available<=warning)return'库存紧张';return'有货'}
 function refreshAllStocks(){if(refreshingStock.value)return;refreshingStock.value=true;api.rq('GET','/api/products').then(r=>{const oldStocks={};ps.value.forEach(p=>oldStocks[p.id]=p.available_stock);ps.value=r.products||[];ps.value.forEach(p=>{if(oldStocks[p.id]!==undefined&&oldStocks[p.id]!==p.available_stock){stockUpdateTime.value[p.id]=Date.now();setTimeout(()=>{delete stockUpdateTime.value[p.id]},1000)}});refreshingStock.value=false}).catch(()=>{refreshingStock.value=false})}
 function startStockPolling(){if(stockPollInterval.value)return;stockPollInterval.value=setInterval(()=>{if(tb.value==='pd'&&!showProductModal.value&&!showRestockModal.value){refreshAllStocks()}},5000)}
 function stopStockPolling(){if(stockPollInterval.value){clearInterval(stockPollInterval.value);stockPollInterval.value=null}}
+function toggleProductActive(p){const newVal=p.is_active===false;api.rq('PUT','/api/admin/products/'+p.id,{is_active:newVal}).then(()=>{p.is_active=newVal;tst(newVal?'已上架':'已下架','ok')}).catch(e=>tst(e.message,'er'))}
 function openRestockModal(p){restockProduct.value=p;restockKeys.value='';quickGenerateCount.value=100;showRestockModal.value=true}
 function closeRestockModal(){showRestockModal.value=false;restockProduct.value=null;restockKeys.value=''}
 function getKeyCount(){if(!restockKeys.value)return 0;return restockKeys.value.split('\n').filter(k=>k.trim()).length}
@@ -1775,7 +1872,7 @@ function toggleAccordion(key){
     }
   })
 }
-const st=ref({shop_name:'',title:'',notice:'',keywords:'',description:'',logo:'',background_url:'',background_mobile_url:'',service_qq:'',service_wechat:'',service_email:'',qrcode1_title:'',qrcode1_url:'',qrcode2_title:'',qrcode2_url:'',register_type:'username',forget_type:'email',session_expire:86400,admin_session_expire:30,username_min_len:3,allow_register:true,login_captcha:false,register_captcha:false,trade_captcha:false,register_verification:false,email_smtp:'',email_port:465,email_secure:'ssl',email_username:'',email_password:'',sms_platform:'aliyun',sms_access_key_id:'',sms_access_key_secret:'',sms_sign_name:'',sms_template_code:'',sms_secret_id:'',sms_secret_key:'',sms_sdk_app_id:'',sms_template_id:'',sms_dxbao_username:'',sms_dxbao_password:'',sms_dxbao_template:'',default_category:'0',commodity_recommend:false,commodity_name:'推荐',pay_wx:true,pay_alipay:true,pay_mazf:false,mazf_mch_id:'',mazf_key:'',pay_yishoumi:false,yishoumi_app_id:'',yishoumi_app_key:'',yishoumi_notify_url:'',pay_usdt:false,pay_qq:false,recharge_min:10,recharge_max:5000,recharge_welfare:false,recharge_bonus:0,points_per_yuan:1,shop_closed:false,maintenance_mode:false,closed_message:'',order_timeout:30,auto_receive_days:7,email_notify:false,sms_notify:false})
+const st=ref({shop_name:'',title:'',notice:'',keywords:'',description:'',logo:'',background_url:'',background_mobile_url:'',service_qq:'',service_wechat:'',service_email:'',qrcode1_title:'',qrcode1_url:'',qrcode2_title:'',qrcode2_url:'',register_type:'username',forget_type:'email',session_expire:86400,admin_session_expire:30,username_min_len:3,allow_register:true,login_captcha:false,register_captcha:false,trade_captcha:false,register_verification:false,email_smtp:'',email_port:465,email_secure:'ssl',email_username:'',email_password:'',sms_platform:'aliyun',sms_access_key_id:'',sms_access_key_secret:'',sms_sign_name:'',sms_template_code:'',sms_secret_id:'',sms_secret_key:'',sms_sdk_app_id:'',sms_template_id:'',sms_dxbao_username:'',sms_dxbao_password:'',sms_dxbao_template:'',default_category:'0',commodity_recommend:false,commodity_name:'推荐',pay_wx:true,pay_alipay:true,pay_mazf:false,mazf_mch_id:'',mazf_key:'',pay_yishoumi:false,yishoumi_app_id:'',yishoumi_app_key:'',yishoumi_notify_url:'',pay_usdt:false,pay_qq:false,recharge_min:10,recharge_max:5000,recharge_welfare:false,recharge_bonus:0,points_per_yuan:1,shop_closed:false,maintenance_mode:false,closed_message:'',order_timeout:30,auto_receive_days:7,email_notify:false,sms_notify:false,upload_max_size:1024})
 const lt=ref({enabled:true,show_odds:true,anti_cheat:true,price:1,free_daily:0,points_cost:0,points_threshold:0,pool:[],pity_enabled:false,pity_count:100,pity_product_id:0,pity_odds:100})
 const ev=ref({enabled:false,banner_title:'',banner_desc:'',show_progress:true,show_countdown:true})
 const pay=ref({
@@ -1910,13 +2007,24 @@ function svPd(){const d=pf.value;if(!d.name||!d.price){tst('请填写完整','er
   fn.then(()=>{spf.value=false;eid.value=0;pf.value={name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'};api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已保存','ok')}).catch(e=>tst(e.message,'er'))}
 function edPd(p){eid.value=p.id;pf.value={name:p.name,description:p.description||'',price:p.price,category_id:p.category_id,type:p.type,delivery_type:p.delivery_type||'card_key'};spf.value=true}
 async function dlPd(id){if(!(await confirmAsync('确定删除？')))return;api.rq('DELETE','/api/admin/products/'+id).then(()=>{api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
-function loadCardKeys(pid){api.rq('GET','/api/admin/cardkeys?product_id='+pid).then(d=>{ks.value=d.keys||[]}).catch(()=>{ks.value=[]})}
+function loadCardKeys(pid){api.rq('GET','/api/admin/cardkeys?product_id='+pid).then(d=>{ks.value=d||[]}).catch(()=>{ks.value=[]})}
 function sk(p){kp.value=p.id;tb.value='ke';selectedKeys.value=[];loadCardKeys(p.id)}
 function sp(p){const e=prompt('奖池(商品ID:概率%)每行:\n2:50\n3:30');if(!e)return;api.rq('PUT','/api/admin/products/'+p.id+'/blindbox',{entries:e.trim().split('\n').map(l=>{const[pid,prob]=l.split(':');return{prize_id:parseInt(pid),probability:parseFloat(prob)}})}).then(()=>tst('奖池已更新','ok')).catch(e=>tst(e.message,'er'))}
 async function imK(){if(!kp.value)return;const d=await api.rq('POST','/api/admin/cardkeys/import',{product_id:kp.value,keys:kt.value});kt.value='';selectedKeys.value=[];loadCardKeys(kp.value);tst('已导入 '+d.count+' 条','ok')}
 async function dlK(k){if(!(await confirmAsync('确定删除此卡密？')))return;api.rq('DELETE','/api/admin/cardkeys/'+k.id).then(()=>{ks.value=ks.value.filter(x=>x.id!==k.id);selectedKeys.value=selectedKeys.value.filter(id=>id!==k.id);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
 async function completeOrder(o){if(!(await confirmAsync('确定将此订单标记为完成？')))return;api.rq('POST','/api/admin/orders/'+o.id+'/complete',{}).then(()=>{o.status='completed';tst('订单已完成','ok')}).catch(e=>tst(e.message,'er'))}
 async function cancelOrder(o){if(!(await confirmAsync('确定取消此订单？')))return;api.rq('POST','/api/admin/orders/'+o.id+'/cancel',{}).then(()=>{o.status='cancelled';tst('订单已取消','ok')}).catch(e=>tst(e.message,'er'))}
+const showDeliverModal=ref(false),deliverOrder=ref(null),deliverContent=ref('')
+function openDeliverModal(o){deliverOrder.value=o;deliverContent.value=o.delivery_content||'';showDeliverModal.value=true}
+async function submitDeliver(){
+  if(!deliverContent.value.trim()){tst('请输入发货内容','er');return}
+  const o=deliverOrder.value;
+  const isNew=!o.delivery_content;
+  const url=isNew?'/api/admin/orders/'+o.id+'/deliver':'/api/admin/orders/'+o.id+'/deliver';
+  const method=isNew?'POST':'PUT';
+  try{await api.rq(method,url,{content:deliverContent.value});o.delivery_content=deliverContent.value;if(isNew)o.status='completed';showDeliverModal.value=false;tst(isNew?'发货成功':'修改成功','ok')}catch(e){tst(e.message,'er')}
+}
+function goToUser(uid){if(!uid)return;tb.value='us';userTab.value='normal';loadUsers();setTimeout(()=>{const row=document.querySelector('tr[data-user-id="'+uid+'"]');if(row){row.scrollIntoView({behavior:'smooth',block:'center'});row.classList.add('highlight-flash');setTimeout(()=>row.classList.remove('highlight-flash'),3000)}},300)}
 async function toggleAdmin(u){var action=u.is_admin?'取消管理员权限':'设为管理员';if(!(await confirmAsync('确定要'+action+'？')))return;api.rq('PUT','/api/admin/users/'+u.id+'/toggle-admin',{}).then(function(d){u.is_admin=d.is_admin;tst('已更新','ok')}).catch(e=>tst(e.message,'er'))}
 const showEditUser=ref(false)
 const editingUserId=ref(null)
@@ -2080,7 +2188,7 @@ async function saveLogRetention(){
 async function manualCleanupLogs(){
   try{await api.rq('POST','/api/admin/logs/cleanup');tst('已清理过期日志','ok');loadLogs()}catch(e){tst(e.message,'er')}
 }
-return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerImageUpload,handleImageUpload,removeProductImage,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
+return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
 }
 }).mount('#app')
 // 后备方案已移至独立script标签

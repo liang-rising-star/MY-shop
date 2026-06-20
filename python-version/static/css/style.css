@@ -468,6 +468,9 @@ select.input-neon { cursor: pointer; }
   gap: 2.5rem;
   align-items: start;
 }
+.detail-media-area {
+  width: 100%;
+}
 .detail-img {
   height: 420px;
   background: var(--bg2);
@@ -483,6 +486,21 @@ select.input-neon { cursor: pointer; }
   height: 100%;
   object-fit: cover;
   border-radius: 12px;
+}
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+video::-webkit-media-controls-enclosure {
+  overflow: hidden;
+}
+video::-webkit-media-controls-toggle-closed-captions-button,
+video::-webkit-media-controls-toggle-captions-button,
+video::-webkit-media-controls-picture-in-picture-button,
+video::-webkit-media-controls-overflow-menu-button {
+  display: none !important;
 }
 .detail-img-placeholder {
   font-size: 5rem;

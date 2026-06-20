@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException
 from sqlalchemy.orm import Session
 from app.database import engine
-from app.models import CardKey
+from app.models import CardKey, Product
 from app.auth import require_admin
 
 router = APIRouter()
@@ -12,10 +12,30 @@ async def import_keys(data: dict, request: Request):
     pid = data["product_id"]
     lines = [l.strip() for l in data["keys"].strip().split("\n") if l.strip()]
     with Session(engine) as s:
+        product = s.query(Product).filter(Product.id == pid).first()
+        if not product:
+            raise HTTPException(404, "商品不存在")
+        
+        # 检查总库存限制
+        if product.total_stock > 0:
+            current_available = s.query(CardKey).filter(
+                CardKey.product_id == pid, CardKey.status == "available"
+            ).count()
+            can_import = product.total_stock - current_available
+            if can_import <= 0:
+                raise HTTPException(400, f"库存已满，总库存为 {product.total_stock}，当前可用 {current_available}")
+            if len(lines) > can_import:
+                lines = lines[:can_import]
+                msg = f"导入成功，已限制为 {can_import} 条（总库存 {product.total_stock}）"
+            else:
+                msg = "导入成功"
+        else:
+            msg = "导入成功"
+        
         for key in lines:
             s.add(CardKey(product_id=pid, key=key))
         s.commit()
-    return {"message": "导入成功", "count": len(lines)}
+    return {"message": msg, "count": len(lines)}
 
 @router.get("/api/admin/cardkeys")
 async def list_keys(request: Request, product_id: int = 0):

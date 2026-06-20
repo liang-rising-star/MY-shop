@@ -31,6 +31,9 @@ const app = createApp({
     const reviews = ref([])
     const user = ref(null)
     const detail = ref(null)
+    const detailMediaList = ref([])
+    const detailMediaIdx = ref(0)
+    const detailVideoRef = ref(null)
     const lastOrder = ref(null)
     const search = ref('')
     const catFilter = ref('')
@@ -151,7 +154,15 @@ const app = createApp({
       if (route === 'detail' && parts[1]) {
         const pid = parseInt(parts[1])
         if (pid && !detail.value) {
-          API.getProduct(pid).then(d => { detail.value = d; loadReviews(pid) }).catch(() => {})
+          API.getProduct(pid).then(d => {
+            detail.value = d
+            const imgs = d.product?.images ? d.product.images.split(',').filter(u=>u.trim()) : []
+            if (d.product?.video_url) imgs.push(d.product.video_url)
+            detailMediaList.value = [...imgs]
+            detailMediaIdx.value = 0
+            loadReviews(pid)
+            startAutoSlide()
+          }).catch(e => console.error('initRoute error:', e))
         }
       }
     }
@@ -284,9 +295,62 @@ const timedProducts = computed(() => eventProducts.value)
       if (!p) { toast('商品数据错误', 'error'); return }
       const pid = p.id ?? p.ID
       if (!pid) { toast('商品ID错误', 'error'); return }
-      detail.value=null; lastOrder.value=null; buyQty.value=1; reviews.value=[]
-      try { const d=await API.getProduct(pid); detail.value=d; loadReviews(pid) } catch(e){ toast(e.message,'error') }
+      detail.value=null; lastOrder.value=null; buyQty.value=1; reviews.value=[]; detailMediaList.value=[]; detailMediaIdx.value=0
+      try { 
+        const d=await API.getProduct(pid); 
+        detail.value=d; 
+        const imgs = d.product?.images ? d.product.images.split(',').filter(u=>u.trim()) : [];
+        if (d.product?.video_url) imgs.push(d.product.video_url);
+        detailMediaList.value = imgs;
+        loadReviews(pid) 
+        startAutoSlide();
+      } catch(e){ toast(e.message,'error') }
       navigate('detail', pid)
+    }
+
+    let autoSlideTimer = null
+    function startAutoSlide() {
+      stopAutoSlide();
+      if (detailMediaList.value.length <= 1) return;
+      const cur = detailMediaList.value[detailMediaIdx.value] || '';
+      if (cur.includes('.mp4') || cur.includes('.webm') || cur.includes('.mov')) {
+        // 视频等播完再切
+        setTimeout(() => {
+          const vid = detailVideoRef.value;
+          if (vid && vid.tagName === 'VIDEO') {
+            vid.onended = () => { nextMedia(); };
+          }
+        }, 200);
+      } else {
+        // 图片5秒切换
+        autoSlideTimer = setInterval(() => {
+          const next = detailMediaList.value[(detailMediaIdx.value + 1) % detailMediaList.value.length] || '';
+          if (next.includes('.mp4') || next.includes('.webm') || next.includes('.mov')) {
+            stopAutoSlide();
+            nextMedia();
+          } else {
+            detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
+          }
+        }, 5000);
+      }
+    }
+    function stopAutoSlide() {
+      if (autoSlideTimer) { clearInterval(autoSlideTimer); autoSlideTimer = null; }
+      const vid = detailVideoRef.value;
+      if (vid && vid.tagName === 'VIDEO') { vid.onended = null; }
+    }
+    function pauseAutoSlide() { stopAutoSlide(); }
+    function resumeAutoSlide() { startAutoSlide(); }
+    function prevMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value - 1 + detailMediaList.value.length) % detailMediaList.value.length; setTimeout(playCurrentVideo, 100); }
+    function nextMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length; setTimeout(playCurrentVideo, 100); }
+    function selectMedia(i) { stopAutoSlide(); stopVideo(); detailMediaIdx.value = i; setTimeout(playCurrentVideo, 100); }
+    function playCurrentVideo() {
+      const vid = detailVideoRef.value;
+      if (vid && vid.tagName === 'VIDEO') { vid.play().then(()=>{ startAutoSlide(); }).catch(()=>{}); }
+    }
+    function stopVideo() {
+      const vid = detailVideoRef.value;
+      if (vid && vid.tagName === 'VIDEO') { vid.pause(); vid.currentTime = 0; vid.onended = null; }
     }
     async function checkout(product) {
       if(!token.value){ toast('请先登录','error'); navigate('login'); return }
@@ -353,6 +417,30 @@ const timedProducts = computed(() => eventProducts.value)
 
     async function confirmPay() {
       if (!selectedPayMethod.value || !payPreview.value) return
+      
+      // 检查支付方式是否可用
+      if (selectedPayMethod.value !== 'balance') {
+        const methodNames = {alipay:'支付宝',wxpay:'微信支付',qqpay:'QQ钱包',mazf:'码支付',yishoumi:'易收米',usdt:'USDT'}
+        const availableMethods = payPreview.value.payment_methods || []
+        const isAvailable = availableMethods.some(m => m.id === selectedPayMethod.value)
+        if (!isAvailable) {
+          toast(`支付方式【${methodNames[selectedPayMethod.value] || selectedPayMethod.value}】不可用`, 'error')
+          return
+        }
+        // 第三方支付暂未对接，直接提示
+        toast(`支付通道【${methodNames[selectedPayMethod.value]}】暂未完成对接，请联系客服或管理员修复`, 'error')
+        return
+      }
+      
+      // 余额支付 - 检查余额是否足够
+      if (selectedPayMethod.value === 'balance') {
+        const userBalance = payPreview.value.user_balance || 0
+        if (userBalance < payPreview.value.final_price) {
+          toast('余额不足，请先充值', 'error')
+          return
+        }
+      }
+      
       paySubmitting.value = true
       try {
         const pid = detail.value?.product?.id
@@ -373,12 +461,6 @@ const timedProducts = computed(() => eventProducts.value)
               toast('支付失败: ' + e.message, 'error')
             }
           }
-        } else {
-          const methodNames = {alipay:'支付宝',wxpay:'微信支付',qqpay:'QQ钱包',mazf:'码支付',yishoumi:'易收米',usdt:'USDT'}
-          const name = methodNames[selectedPayMethod.value] || selectedPayMethod.value
-          showPayModal.value = false
-          toast(`支付通道【${name}】暂未完成对接，请联系客服或管理员修复`, 'error')
-          loadOrders(); loadProducts(); loadProfile()
         }
       } catch(e){
         showPayModal.value = false
@@ -552,6 +634,16 @@ const timedProducts = computed(() => eventProducts.value)
       if (p === 'admin') { loadAllOrders(); loadCoupons(); loadCategories(); loadProducts(); loadUsers() }
     })
 
+    watch(detail, (d) => {
+      if (d && d.product) {
+        const imgs = d.product.images ? d.product.images.split(',').filter(u=>u.trim()) : []
+        if (d.product.video_url) imgs.push(d.product.video_url)
+        detailMediaList.value = [...imgs]
+        detailMediaIdx.value = 0
+        startAutoSlide()
+      }
+    })
+
     watch(token, () => { if(token.value){ loadProfile(); loadOrders(); loadMyCoupons() } })
 
     window.addEventListener('popstate', initRoute)
@@ -650,7 +742,7 @@ const timedProducts = computed(() => eventProducts.value)
       page, scrolled, menuOpen, isReg, token, toasts,
       setupRequired, setupUser, setupPass, setupEmail, setupErr, adminView,
       products, categories, orders, allOrders, coupons, myCoupons, cardKeys, reviews,
-      user, detail, lastOrder, search, catFilter, typeFilter,
+      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, lastOrder, search, catFilter, typeFilter,
       authUser, authPass, authEmail, authErr, captchaKey, captchaImage, captchaCode,
       adminTab, adminMenu, showProductForm, editingProduct, prodForm,
       catForm, couponForm, keysInput, keyProductID, claimCode, buyQty,

@@ -425,12 +425,29 @@ async def admin_orders(request: Request, page: int = 1, page_size: int = 20, sta
             q = q.filter(Order.status == status)
         total = q.count()
         orders = q.order_by(Order.created_at.desc()).offset((page-1)*page_size).limit(page_size).all()
-        return {"total": total, "page": page, "page_size": page_size, "orders": [serialize(o) for o in orders]}
+        # 获取每个订单的支付方式和用户信息
+        order_ids = [o.id for o in orders]
+        payment_methods = {}
+        user_ids = list(set(o.user_id for o in orders))
+        users_map = {}
+        if order_ids:
+            logs = s.query(PaymentLog).filter(PaymentLog.order_id.in_(order_ids), PaymentLog.status == "success").all()
+            for log in logs:
+                if log.order_id not in payment_methods:
+                    payment_methods[log.order_id] = log.method
+        if user_ids:
+            users = s.query(User).filter(User.id.in_(user_ids)).all()
+            for u in users:
+                users_map[u.id] = {"id":u.id,"username":u.username,"uuid":u.uuid or "","avatar":u.avatar or ""}
+        return {"total": total, "page": page, "page_size": page_size, "orders": [serialize(o, payment_methods.get(o.id), users_map.get(o.user_id)) for o in orders]}
 
-def serialize(o):
+def serialize(o, payment_method=None, user_info=None):
     return {"id":o.id,"order_no":o.order_no,"user_id":o.user_id,"product_id":o.product_id,"quantity":o.quantity,
             "total_price":o.total_price,"discount":o.discount,"final_price":o.final_price,"status":o.status,
-            "delivery_type":o.delivery_type,"created_at":str(o.created_at),"paid_at":str(o.paid_at) if o.paid_at else None,
+            "delivery_type":o.delivery_type,"delivery_content":o.delivery_content or "",
+            "created_at":str(o.created_at),"paid_at":str(o.paid_at) if o.paid_at else None,
+            "payment_method":payment_method,
+            "user":user_info,
             "product":{c.name:getattr(o.product,c.name) for c in o.product.__table__.columns} if o.product else None,
             "card_keys":[{c.name:getattr(k,c.name) for c in k.__table__.columns} for k in o.card_keys]}
 
@@ -572,3 +589,32 @@ async def admin_redeliver_order(oid: int, request: Request):
         except Exception as e:
             s.rollback()
             raise HTTPException(500, f"发货失败: {str(e)}")
+
+@router.post("/api/admin/orders/{oid}/deliver")
+async def manual_deliver_order(oid: int, data: dict, request: Request):
+    """手动发货"""
+    await require_admin(request)
+    content = data.get("content", "")
+    with Session(engine) as s:
+        order = s.query(Order).filter(Order.id == oid).first()
+        if not order:
+            raise HTTPException(404, "订单不存在")
+        order.delivery_content = content
+        if order.status == "paid":
+            order.status = "completed"
+        s.commit()
+    add_admin_log(request, "DELIVER", "order", oid, f"手动发货订单 {oid}")
+    return {"message": "发货成功"}
+
+@router.put("/api/admin/orders/{oid}/deliver")
+async def update_delivery(oid: int, data: dict, request: Request):
+    """修改发货内容"""
+    await require_admin(request)
+    content = data.get("content", "")
+    with Session(engine) as s:
+        order = s.query(Order).filter(Order.id == oid).first()
+        if not order:
+            raise HTTPException(404, "订单不存在")
+        order.delivery_content = content
+        s.commit()
+    return {"message": "修改成功"}

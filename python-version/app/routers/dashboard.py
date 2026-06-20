@@ -57,6 +57,8 @@ async def dashboard_data(request: Request, period: int = 0):
             available = s.query(CardKey).filter(CardKey.product_id == p.id, CardKey.status == "available").count()
             if available == 0:
                 out_of_stock_count += 1
+            elif p.total_stock > 0 and available <= p.total_stock * 0.2:
+                low_stock_count += 1
             elif p.stock_warning > 0 and available <= p.stock_warning:
                 low_stock_count += 1
 

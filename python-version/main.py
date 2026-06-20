@@ -417,7 +417,7 @@ async def get_background(request: Request, mobile: bool = False):
 
 @app.get("/api/image/{file_path:path}")
 async def get_image_via_api(file_path: str, request: Request):
-    """通过API访问图片"""
+    """通过API访问图片和视频"""
     check_anti_crawler(request, allow_empty_referer=False)
     
     full_path = os.path.join(config.UPLOAD_DIR, file_path)
@@ -429,19 +429,17 @@ async def get_image_via_api(file_path: str, request: Request):
         raise HTTPException(status_code=403, detail="访问被拒绝")
     
     ext = os.path.splitext(full_path)[1].lower()
-    image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico'}
-    if ext not in image_exts:
-        raise HTTPException(status_code=403, detail="仅允许访问图片文件")
+    allowed_exts = {'.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico', '.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'}
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=403, detail="不支持的文件类型")
     
     content_types = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.svg': 'image/svg+xml',
-        '.webp': 'image/webp',
-        '.bmp': 'image/bmp',
-        '.ico': 'image/x-icon'
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+        '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
+        '.bmp': 'image/bmp', '.ico': 'image/x-icon',
+        '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
+        '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska', '.flv': 'video/x-flv',
+        '.wmv': 'video/x-ms-wmv', '.m4v': 'video/mp4', '.3gp': 'video/3gpp'
     }
     
     response = FileResponse(
