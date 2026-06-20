@@ -257,10 +257,10 @@
                 <div class="detail-media-area">
                 <div class="detail-img" @mouseenter="pauseAutoSlide" @mouseleave="resumeAutoSlide">
                   <template v-if="detailMediaList.length>0">
-                    <div style="position:relative;width:100%;height:100%">
+                    <div style="position:relative;width:100%;height:100%" @mouseenter="pauseAutoSlide" @mouseleave="resumeAutoSlide">
                       <transition name="fade">
                         <img v-if="detailMediaList[detailMediaIdx]&&!detailMediaList[detailMediaIdx].includes('.mp4')" :key="'img-'+detailMediaIdx" :src="detailMediaList[detailMediaIdx]" :alt="detail.product.name" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0" @error="$event.target.style.display='none'" />
-                        <video v-else-if="detailMediaList[detailMediaIdx]" :key="'vid-'+detailMediaIdx" ref="detailVideoRef" :src="detailMediaList[detailMediaIdx]" controls preload="metadata" playsinline style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0"></video>
+                        <video v-else-if="detailMediaList[detailMediaIdx]" :key="'vid-'+detailMediaIdx" ref="detailVideoRef" :src="detailMediaList[detailMediaIdx]" controls preload="metadata" playsinline disablePictureInPicture @contextmenu.prevent style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0"></video>
                       </transition>
                       <button v-if="detailMediaList.length>1" @click="prevMedia" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.4);color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2" @mouseenter="$event.target.style.background='rgba(0,0,0,0.7)'" @mouseleave="$event.target.style.background='rgba(0,0,0,0.4)'">‹</button>
                       <button v-if="detailMediaList.length>1" @click="nextMedia" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.4);color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2" @mouseenter="$event.target.style.background='rgba(0,0,0,0.7)'" @mouseleave="$event.target.style.background='rgba(0,0,0,0.4)'">›</button>

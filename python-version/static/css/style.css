@@ -493,13 +493,26 @@ select.input-neon { cursor: pointer; }
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
+video {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
 video::-webkit-media-controls-enclosure {
   overflow: hidden;
+}
+video::-webkit-media-controls-overlay-enclosure {
+  display: none !important;
 }
 video::-webkit-media-controls-toggle-closed-captions-button,
 video::-webkit-media-controls-toggle-captions-button,
 video::-webkit-media-controls-picture-in-picture-button,
 video::-webkit-media-controls-overflow-menu-button {
+  display: none !important;
+}
+.edge-video-overlay,
+.ms-bubble,
+[aria-label="外观"],
+[aria-label="上下文菜单"] {
   display: none !important;
 }
 .detail-img-placeholder {

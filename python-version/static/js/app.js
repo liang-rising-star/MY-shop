@@ -625,6 +625,7 @@ const timedProducts = computed(() => eventProducts.value)
 
     watch(page, (p) => {
       window.scrollTo({ top: 0, behavior: 'smooth' })
+      if (p !== 'detail') { stopAutoSlide(); stopVideo(); }
       if (p === 'home' || p === 'lottery') loadProducts()
       if (p === 'events') loadEvents()
       if (p === 'featured') loadProducts(1)
