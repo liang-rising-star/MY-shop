@@ -346,19 +346,19 @@ const timedProducts = computed(() => eventProducts.value)
       });
     }
     let autoSlideTimer = null
-    let videoMuted = true
     function tryPlayVideo(vid, unmute) {
       if (!vid || vid.tagName !== 'VIDEO') return;
       vid.muted = true;
-      vid.play().then(() => { if (unmute) { vid.muted = false; videoMuted = false; } }).catch(() => {});
+      vid.play().then(() => { if (unmute) vid.muted = false; }).catch(() => {});
     }
-    function handleUserInteraction() {
+    function handleFirstInteraction() {
+      try { localStorage.setItem('myshop_sound_enabled', '1'); } catch(e) {}
       const vid = detailVideoRef.value;
-      if (vid && vid.tagName === 'VIDEO' && !vid.paused && isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
-        vid.muted = false;
-        videoMuted = false;
-      }
-      document.removeEventListener('click', handleUserInteraction);
+      if (vid && vid.tagName === 'VIDEO' && !vid.paused) { vid.muted = false; }
+      document.removeEventListener('click', handleFirstInteraction);
+    }
+    function isSoundEnabled() {
+      try { return localStorage.getItem('myshop_sound_enabled') === '1'; } catch(e) { return false; }
     }
     function startAutoSlide() {
       stopAutoSlide();
@@ -368,8 +368,7 @@ const timedProducts = computed(() => eventProducts.value)
         setTimeout(() => {
           const vid = detailVideoRef.value;
           if (vid && vid.tagName === 'VIDEO') {
-            vid.muted = true;
-            document.addEventListener('click', handleUserInteraction, { once: true });
+            vid.muted = !isSoundEnabled();
             vid.onended = () => {
               detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
             };
@@ -410,10 +409,8 @@ const timedProducts = computed(() => eventProducts.value)
     function handleVideoLoaded() {
       const vid = detailVideoRef.value;
       if (!vid || vid.tagName !== 'VIDEO') return;
-      if (isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
-        vid.muted = true;
-        document.addEventListener('click', handleUserInteraction, { once: true });
-      }
+      vid.muted = true;
+      vid.play().catch(() => {});
     }
 
     const currentVideoSrc = computed(() => {
@@ -423,6 +420,13 @@ const timedProducts = computed(() => eventProducts.value)
 
     watch(currentVideoSrc, (newSrc) => {
       if (!newSrc) return;
+      nextTick(() => {
+        const vid = detailVideoRef.value;
+        if (vid && vid.tagName === 'VIDEO') {
+          vid.muted = true;
+          vid.play().catch(() => {});
+        }
+      });
     })
     async function checkout(product) {
       if(!token.value){ toast('请先登录','error'); navigate('login'); return }
@@ -717,6 +721,9 @@ const timedProducts = computed(() => eventProducts.value)
     window.addEventListener('popstate', initRoute)
 
     onMounted(() => {
+      if (!isSoundEnabled()) {
+        document.addEventListener('click', handleFirstInteraction, { once: true });
+      }
       initRoute()
       if (page.value !== 'detail') {
         checkSetup()
