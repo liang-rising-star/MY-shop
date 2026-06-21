@@ -346,10 +346,10 @@ const timedProducts = computed(() => eventProducts.value)
       });
     }
     let autoSlideTimer = null
-    function tryPlayVideo(vid) {
+    function tryPlayVideo(vid, unmute) {
       if (!vid || vid.tagName !== 'VIDEO') return;
       vid.muted = true;
-      vid.play().then(() => { vid.muted = false; }).catch(() => {});
+      vid.play().then(() => { if (unmute) vid.muted = false; }).catch(() => {});
     }
     function startAutoSlide() {
       stopAutoSlide();
@@ -359,12 +359,12 @@ const timedProducts = computed(() => eventProducts.value)
         setTimeout(() => {
           const vid = detailVideoRef.value;
           if (vid && vid.tagName === 'VIDEO') {
-            tryPlayVideo(vid);
+            vid.muted = true;
             vid.onended = () => {
               detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
             };
           }
-        }, 300);
+        }, 500);
       } else {
         autoSlideTimer = setInterval(() => {
           detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
@@ -387,7 +387,7 @@ const timedProducts = computed(() => eventProducts.value)
       if (isVideoUrl(url)) {
         nextTick(() => {
           const vid = detailVideoRef.value;
-          if (vid) { vid.src = url; tryPlayVideo(vid); }
+          if (vid) { vid.src = url; tryPlayVideo(vid, true); }
         });
       }
       nextTick(() => { startAutoSlide(); });
@@ -401,7 +401,7 @@ const timedProducts = computed(() => eventProducts.value)
       const vid = detailVideoRef.value;
       if (!vid || vid.tagName !== 'VIDEO') return;
       if (isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
-        tryPlayVideo(vid);
+        vid.muted = true;
       }
     }
 
@@ -412,10 +412,6 @@ const timedProducts = computed(() => eventProducts.value)
 
     watch(currentVideoSrc, (newSrc) => {
       if (!newSrc) return;
-      nextTick(() => {
-        const vid = detailVideoRef.value;
-        if (vid && vid.tagName === 'VIDEO') tryPlayVideo(vid);
-      });
     })
     async function checkout(product) {
       if(!token.value){ toast('请先登录','error'); navigate('login'); return }
