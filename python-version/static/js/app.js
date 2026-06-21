@@ -346,10 +346,19 @@ const timedProducts = computed(() => eventProducts.value)
       });
     }
     let autoSlideTimer = null
+    let videoMuted = true
     function tryPlayVideo(vid, unmute) {
       if (!vid || vid.tagName !== 'VIDEO') return;
       vid.muted = true;
-      vid.play().then(() => { if (unmute) vid.muted = false; }).catch(() => {});
+      vid.play().then(() => { if (unmute) { vid.muted = false; videoMuted = false; } }).catch(() => {});
+    }
+    function handleUserInteraction() {
+      const vid = detailVideoRef.value;
+      if (vid && vid.tagName === 'VIDEO' && !vid.paused && isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
+        vid.muted = false;
+        videoMuted = false;
+      }
+      document.removeEventListener('click', handleUserInteraction);
     }
     function startAutoSlide() {
       stopAutoSlide();
@@ -360,6 +369,7 @@ const timedProducts = computed(() => eventProducts.value)
           const vid = detailVideoRef.value;
           if (vid && vid.tagName === 'VIDEO') {
             vid.muted = true;
+            document.addEventListener('click', handleUserInteraction, { once: true });
             vid.onended = () => {
               detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
             };
@@ -402,6 +412,7 @@ const timedProducts = computed(() => eventProducts.value)
       if (!vid || vid.tagName !== 'VIDEO') return;
       if (isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
         vid.muted = true;
+        document.addEventListener('click', handleUserInteraction, { once: true });
       }
     }
 
