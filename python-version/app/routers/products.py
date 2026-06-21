@@ -320,15 +320,17 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
     }
 
 @router.get("/api/admin/products/{pid}/thumbnail")
-async def generate_video_thumbnail(pid: int):
-    """为视频生成缩略图"""
+async def generate_video_thumbnail(pid: int, request: Request, video_url: str = ""):
+    """为视频生成缩略图（支持前台访问）"""
     with Session(engine) as s:
         product = s.query(Product).filter(Product.id == pid).first()
         if not product:
             raise HTTPException(404, "商品不存在")
-        video_url = product.video_url or ""
         if not video_url:
-            raise HTTPException(400, "该商品没有视频")
+            full_url = product.video_url or ""
+            if not full_url:
+                raise HTTPException(400, "该商品没有视频")
+            video_url = full_url.split(",")[0].strip()
         video_path = os.path.join(config.UPLOAD_DIR, video_url.replace("/api/image/", ""))
         if not os.path.exists(video_path):
             raise HTTPException(404, "视频文件不存在")

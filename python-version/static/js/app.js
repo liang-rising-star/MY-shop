@@ -177,7 +177,7 @@ const app = createApp({
         vids.forEach(url => {
           imgs.push(url)
           if (!videoThumbnails.value[url]) {
-            fetch('/api/admin/products/' + pid + '/thumbnail').then(r=>r.json()).then(data=>{
+            fetch('/api/admin/products/' + pid + '/thumbnail?video_url=' + encodeURIComponent(url)).then(r=>r.json()).then(data=>{
               if (data.thumbnail) { videoThumbnails.value[url] = data.thumbnail; }
             }).catch(()=>{});
           }
