@@ -171,18 +171,18 @@ const app = createApp({
       if (!product) return
       stopAutoSlide()
       stopVideo()
-      const imgs = product.images ? product.images.split(',').filter(u=>u.trim()) : []
-      if (product.video_url) {
+      let imgs = product.images ? product.images.split(',').filter(u=>u.trim()) : []
+      if (product.video_url && !imgs.some(u => isVideoUrl(u))) {
         const vids = product.video_url.split(',').filter(u=>u.trim())
-        vids.forEach(url => {
-          imgs.push(url)
-          if (!videoThumbnails.value[url]) {
-            fetch('/api/admin/products/' + pid + '/thumbnail?video_url=' + encodeURIComponent(url)).then(r=>r.json()).then(data=>{
-              if (data.thumbnail) { videoThumbnails.value[url] = data.thumbnail; }
-            }).catch(()=>{});
-          }
-        })
+        vids.forEach(url => imgs.push(url))
       }
+      imgs.forEach(url => {
+        if (isVideoUrl(url) && !videoThumbnails.value[url]) {
+          fetch('/api/admin/products/' + pid + '/thumbnail?video_url=' + encodeURIComponent(url)).then(r=>r.json()).then(data=>{
+            if (data.thumbnail) { videoThumbnails.value[url] = data.thumbnail; }
+          }).catch(()=>{});
+        }
+      })
       detailMediaList.value = [...imgs]
       detailMediaIdx.value = 0
       preloadMedia(imgs)
