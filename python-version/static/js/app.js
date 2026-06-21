@@ -173,12 +173,15 @@ const app = createApp({
       stopVideo()
       const imgs = product.images ? product.images.split(',').filter(u=>u.trim()) : []
       if (product.video_url) {
-        imgs.push(product.video_url)
-        if (!videoThumbnails.value[product.video_url]) {
-          fetch('/api/admin/products/' + pid + '/thumbnail').then(r=>r.json()).then(data=>{
-            if (data.thumbnail) { videoThumbnails.value[product.video_url] = data.thumbnail; }
-          }).catch(()=>{});
-        }
+        const vids = product.video_url.split(',').filter(u=>u.trim())
+        vids.forEach(url => {
+          imgs.push(url)
+          if (!videoThumbnails.value[url]) {
+            fetch('/api/admin/products/' + pid + '/thumbnail').then(r=>r.json()).then(data=>{
+              if (data.thumbnail) { videoThumbnails.value[url] = data.thumbnail; }
+            }).catch(()=>{});
+          }
+        })
       }
       detailMediaList.value = [...imgs]
       detailMediaIdx.value = 0
