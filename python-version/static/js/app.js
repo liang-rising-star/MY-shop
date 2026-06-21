@@ -35,6 +35,7 @@ const app = createApp({
     const detailMediaIdx = ref(0)
     const detailVideoRef = ref(null)
     const videoThumbnails = ref({})
+    const videoMuted = ref(true)
     const lastOrder = ref(null)
     const search = ref('')
     const catFilter = ref('')
@@ -154,25 +155,36 @@ const app = createApp({
       page.value = route
       if (route === 'detail' && parts[1]) {
         const pid = parseInt(parts[1])
-        if (pid && !detail.value) {
-          API.getProduct(pid).then(d => {
+        if (pid) {
+          const loadDetail = (d) => {
             detail.value = d
-            const imgs = d.product?.images ? d.product.images.split(',').filter(u=>u.trim()) : []
-            if (d.product?.video_url) {
-              imgs.push(d.product.video_url)
-              if (!videoThumbnails.value[d.product.video_url]) {
-                fetch('/api/admin/products/' + d.product.id + '/thumbnail').then(r=>r.json()).then(data=>{
-                  if (data.thumbnail) { videoThumbnails.value[d.product.video_url] = data.thumbnail; }
-                }).catch(()=>{});
-              }
-            }
-            detailMediaList.value = [...imgs]
-            detailMediaIdx.value = 0
-            loadReviews(pid)
-            nextTick(() => { playCurrentVideo(); startAutoSlide(); })
-          }).catch(e => console.error('initRoute error:', e))
+            setupDetailMedia(d.product, d.product.id)
+          }
+          if (!detail.value) {
+            API.getProduct(pid).then(d => loadDetail(d)).catch(e => console.error('initRoute error:', e))
+          } else {
+            setupDetailMedia(detail.value.product, pid)
+          }
         }
       }
+    }
+    function setupDetailMedia(product, pid) {
+      if (!product) return
+      stopAutoSlide()
+      stopVideo()
+      const imgs = product.images ? product.images.split(',').filter(u=>u.trim()) : []
+      if (product.video_url) {
+        imgs.push(product.video_url)
+        if (!videoThumbnails.value[product.video_url]) {
+          fetch('/api/admin/products/' + pid + '/thumbnail').then(r=>r.json()).then(data=>{
+            if (data.thumbnail) { videoThumbnails.value[product.video_url] = data.thumbnail; }
+          }).catch(()=>{});
+        }
+      }
+      detailMediaList.value = [...imgs]
+      detailMediaIdx.value = 0
+      preloadMedia(imgs)
+      nextTick(() => { startAutoSlide(); })
     }
 
     const filtered = computed(() => {
@@ -306,49 +318,52 @@ const timedProducts = computed(() => eventProducts.value)
       detail.value=null; lastOrder.value=null; buyQty.value=1; reviews.value=[]; detailMediaList.value=[]; detailMediaIdx.value=0
       try { 
         const d=await API.getProduct(pid); 
-        detail.value=d; 
-        const imgs = d.product?.images ? d.product.images.split(',').filter(u=>u.trim()) : [];
-        if (d.product?.video_url) {
-          imgs.push(d.product.video_url)
-          if (!videoThumbnails.value[d.product.video_url]) {
-            fetch('/api/admin/products/' + d.product.id + '/thumbnail').then(r=>r.json()).then(data=>{
-              if (data.thumbnail) { videoThumbnails.value[d.product.video_url] = data.thumbnail; }
-            }).catch(()=>{});
-          }
-        }
-        detailMediaList.value = imgs;
+        detail.value=d;
+        setupDetailMedia(d.product, pid)
         loadReviews(pid)
-        nextTick(() => {
-          playCurrentVideo();
-          startAutoSlide();
-        });
       } catch(e){ toast(e.message,'error') }
       navigate('detail', pid)
     }
 
+    function isVideoUrl(url) {
+      return url && (url.includes('.mp4') || url.includes('.webm') || url.includes('.mov'));
+    }
+    function preloadMedia(list) {
+      list.forEach(url => {
+        if (!url || !url.trim()) return;
+        if (isVideoUrl(url)) {
+          const v = document.createElement('video');
+          v.src = url;
+          v.preload = 'auto';
+          v.muted = true;
+          v.style.display = 'none';
+          document.body.appendChild(v);
+          v.onloadeddata = () => { document.body.removeChild(v); };
+          setTimeout(() => { if (v.parentNode) document.body.removeChild(v); }, 15000);
+        } else {
+          const img = new Image();
+          img.src = url;
+        }
+      });
+    }
     let autoSlideTimer = null
     function startAutoSlide() {
       stopAutoSlide();
       if (detailMediaList.value.length <= 1) return;
       const cur = detailMediaList.value[detailMediaIdx.value] || '';
-      if (cur.includes('.mp4') || cur.includes('.webm') || cur.includes('.mov')) {
-        // 视频等播完再切
-        setTimeout(() => {
+      if (isVideoUrl(cur)) {
+        const setupOnEnded = () => {
           const vid = detailVideoRef.value;
-          if (vid && vid.tagName === 'VIDEO') {
-            vid.onended = () => { nextMedia(); };
+          if (vid && vid.tagName === 'VIDEO' && isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
+            vid.onended = () => {
+              detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
+            };
           }
-        }, 200);
+        };
+        setTimeout(setupOnEnded, 500);
       } else {
-        // 图片5秒切换
         autoSlideTimer = setInterval(() => {
-          const next = detailMediaList.value[(detailMediaIdx.value + 1) % detailMediaList.value.length] || '';
-          if (next.includes('.mp4') || next.includes('.webm') || next.includes('.mov')) {
-            stopAutoSlide();
-            nextMedia();
-          } else {
-            detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
-          }
+          detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
         }, 5000);
       }
     }
@@ -359,20 +374,53 @@ const timedProducts = computed(() => eventProducts.value)
     }
     function pauseAutoSlide() { stopAutoSlide(); }
     function resumeAutoSlide() { startAutoSlide(); }
-    function prevMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value - 1 + detailMediaList.value.length) % detailMediaList.value.length; setTimeout(playCurrentVideo, 100); }
-    function nextMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length; setTimeout(playCurrentVideo, 100); }
-    function selectMedia(i) { stopAutoSlide(); stopVideo(); detailMediaIdx.value = i; setTimeout(playCurrentVideo, 100); }
+    function prevMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value - 1 + detailMediaList.value.length) % detailMediaList.value.length; }
+    function nextMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length; }
+    function selectMedia(i) { stopAutoSlide(); stopVideo(); detailMediaIdx.value = i; }
     function getVideoThumb(url) { return videoThumbnails.value[url] || ''; }
     function playCurrentVideo() {
       const vid = detailVideoRef.value;
-      const url = detailMediaList.value[detailMediaIdx.value];
-      if (!vid || vid.tagName !== 'VIDEO' || !url) return;
-      vid.play().then(()=>{ startAutoSlide(); }).catch(()=>{});
+      if (!vid || vid.tagName !== 'VIDEO') return;
+      const url = detailMediaList.value[detailMediaIdx.value] || '';
+      if (!isVideoUrl(url)) return;
+      vid.muted = true;
+      vid.play().catch(()=>{});
     }
     function stopVideo() {
       const vid = detailVideoRef.value;
       if (vid && vid.tagName === 'VIDEO') { vid.pause(); vid.currentTime = 0; vid.onended = null; }
     }
+    function handleVideoLoaded() {
+      const vid = detailVideoRef.value;
+      if (!vid || vid.tagName !== 'VIDEO') return;
+      if (isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
+        vid.muted = true;
+        vid.play().catch(()=>{});
+      }
+    }
+    function toggleVideoMute() {
+      const vid = detailVideoRef.value;
+      if (vid && vid.tagName === 'VIDEO') { vid.muted = !vid.muted; videoMuted.value = vid.muted; }
+    }
+
+    const currentVideoSrc = computed(() => {
+      const url = detailMediaList.value[detailMediaIdx.value] || '';
+      return isVideoUrl(url) ? url : '';
+    })
+
+    watch(currentVideoSrc, (newSrc) => {
+      if (!newSrc) return;
+      nextTick(() => {
+        const vid = detailVideoRef.value;
+        if (!vid || vid.tagName !== 'VIDEO') return;
+        vid.muted = true;
+        const tryPlay = () => {
+          vid.play().catch(()=>{});
+        };
+        if (vid.readyState >= 2) { tryPlay(); }
+        else { vid.addEventListener('loadeddata', tryPlay, { once: true }); }
+      });
+    })
     async function checkout(product) {
       if(!token.value){ toast('请先登录','error'); navigate('login'); return }
       const pid = product.id || product.ID
@@ -656,22 +704,9 @@ const timedProducts = computed(() => eventProducts.value)
       if (p === 'admin') { loadAllOrders(); loadCoupons(); loadCategories(); loadProducts(); loadUsers() }
     })
 
-    watch(detail, (d) => {
-      if (d && d.product) {
-        const imgs = d.product.images ? d.product.images.split(',').filter(u=>u.trim()) : []
-        if (d.product.video_url) {
-          imgs.push(d.product.video_url)
-          // 为视频生成缩略图
-          if (!videoThumbnails.value[d.product.video_url]) {
-            fetch('/api/admin/products/' + d.product.id + '/thumbnail').then(r=>r.json()).then(data=>{
-              if (data.thumbnail) { videoThumbnails.value[d.product.video_url] = data.thumbnail; }
-            }).catch(()=>{});
-          }
-        }
-        detailMediaList.value = [...imgs]
-        detailMediaIdx.value = 0
-        nextTick(() => { playCurrentVideo(); startAutoSlide(); })
-      }
+    watch(detailMediaIdx, () => {
+      stopAutoSlide();
+      nextTick(() => { startAutoSlide(); });
     })
 
     watch(token, () => { if(token.value){ loadProfile(); loadOrders(); loadMyCoupons() } })
@@ -772,7 +807,7 @@ const timedProducts = computed(() => eventProducts.value)
       page, scrolled, menuOpen, isReg, token, toasts,
       setupRequired, setupUser, setupPass, setupEmail, setupErr, adminView,
       products, categories, orders, allOrders, coupons, myCoupons, cardKeys, reviews,
-      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, getVideoThumb, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, lastOrder, search, catFilter, typeFilter,
+      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, videoMuted, getVideoThumb, handleVideoLoaded, currentVideoSrc, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, isVideoUrl, toggleVideoMute, lastOrder, search, catFilter, typeFilter,
       authUser, authPass, authEmail, authErr, captchaKey, captchaImage, captchaCode,
       adminTab, adminMenu, showProductForm, editingProduct, prodForm,
       catForm, couponForm, keysInput, keyProductID, claimCode, buyQty,
