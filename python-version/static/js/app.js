@@ -35,7 +35,6 @@ const app = createApp({
     const detailMediaIdx = ref(0)
     const detailVideoRef = ref(null)
     const videoThumbnails = ref({})
-    const videoMuted = ref(true)
     const lastOrder = ref(null)
     const search = ref('')
     const catFilter = ref('')
@@ -347,20 +346,25 @@ const timedProducts = computed(() => eventProducts.value)
       });
     }
     let autoSlideTimer = null
+    function tryPlayVideo(vid) {
+      if (!vid || vid.tagName !== 'VIDEO') return;
+      vid.muted = true;
+      vid.play().then(() => { vid.muted = false; }).catch(() => {});
+    }
     function startAutoSlide() {
       stopAutoSlide();
       if (detailMediaList.value.length <= 1) return;
       const cur = detailMediaList.value[detailMediaIdx.value] || '';
       if (isVideoUrl(cur)) {
-        const setupOnEnded = () => {
+        setTimeout(() => {
           const vid = detailVideoRef.value;
-          if (vid && vid.tagName === 'VIDEO' && isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
+          if (vid && vid.tagName === 'VIDEO') {
+            tryPlayVideo(vid);
             vid.onended = () => {
               detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
             };
           }
-        };
-        setTimeout(setupOnEnded, 500);
+        }, 300);
       } else {
         autoSlideTimer = setInterval(() => {
           detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
@@ -376,16 +380,19 @@ const timedProducts = computed(() => eventProducts.value)
     function resumeAutoSlide() { startAutoSlide(); }
     function prevMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value - 1 + detailMediaList.value.length) % detailMediaList.value.length; }
     function nextMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length; }
-    function selectMedia(i) { stopAutoSlide(); stopVideo(); detailMediaIdx.value = i; }
-    function getVideoThumb(url) { return videoThumbnails.value[url] || ''; }
-    function playCurrentVideo() {
-      const vid = detailVideoRef.value;
-      if (!vid || vid.tagName !== 'VIDEO') return;
-      const url = detailMediaList.value[detailMediaIdx.value] || '';
-      if (!isVideoUrl(url)) return;
-      vid.muted = true;
-      vid.play().catch(()=>{});
+    function selectMedia(i) {
+      stopAutoSlide(); stopVideo();
+      detailMediaIdx.value = i;
+      const url = detailMediaList.value[i] || '';
+      if (isVideoUrl(url)) {
+        nextTick(() => {
+          const vid = detailVideoRef.value;
+          if (vid) { vid.src = url; tryPlayVideo(vid); }
+        });
+      }
+      nextTick(() => { startAutoSlide(); });
     }
+    function getVideoThumb(url) { return videoThumbnails.value[url] || ''; }
     function stopVideo() {
       const vid = detailVideoRef.value;
       if (vid && vid.tagName === 'VIDEO') { vid.pause(); vid.currentTime = 0; vid.onended = null; }
@@ -394,13 +401,8 @@ const timedProducts = computed(() => eventProducts.value)
       const vid = detailVideoRef.value;
       if (!vid || vid.tagName !== 'VIDEO') return;
       if (isVideoUrl(detailMediaList.value[detailMediaIdx.value])) {
-        vid.muted = true;
-        vid.play().catch(()=>{});
+        tryPlayVideo(vid);
       }
-    }
-    function toggleVideoMute() {
-      const vid = detailVideoRef.value;
-      if (vid && vid.tagName === 'VIDEO') { vid.muted = !vid.muted; videoMuted.value = vid.muted; }
     }
 
     const currentVideoSrc = computed(() => {
@@ -412,13 +414,7 @@ const timedProducts = computed(() => eventProducts.value)
       if (!newSrc) return;
       nextTick(() => {
         const vid = detailVideoRef.value;
-        if (!vid || vid.tagName !== 'VIDEO') return;
-        vid.muted = true;
-        const tryPlay = () => {
-          vid.play().catch(()=>{});
-        };
-        if (vid.readyState >= 2) { tryPlay(); }
-        else { vid.addEventListener('loadeddata', tryPlay, { once: true }); }
+        if (vid && vid.tagName === 'VIDEO') tryPlayVideo(vid);
       });
     })
     async function checkout(product) {
@@ -807,7 +803,7 @@ const timedProducts = computed(() => eventProducts.value)
       page, scrolled, menuOpen, isReg, token, toasts,
       setupRequired, setupUser, setupPass, setupEmail, setupErr, adminView,
       products, categories, orders, allOrders, coupons, myCoupons, cardKeys, reviews,
-      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, videoMuted, getVideoThumb, handleVideoLoaded, currentVideoSrc, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, isVideoUrl, toggleVideoMute, lastOrder, search, catFilter, typeFilter,
+      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, getVideoThumb, handleVideoLoaded, currentVideoSrc, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, isVideoUrl, lastOrder, search, catFilter, typeFilter,
       authUser, authPass, authEmail, authErr, captchaKey, captchaImage, captchaCode,
       adminTab, adminMenu, showProductForm, editingProduct, prodForm,
       catForm, couponForm, keysInput, keyProductID, claimCode, buyQty,
