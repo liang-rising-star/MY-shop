@@ -346,19 +346,12 @@ const timedProducts = computed(() => eventProducts.value)
       });
     }
     let autoSlideTimer = null
-    function tryPlayVideo(vid, unmute) {
-      if (!vid || vid.tagName !== 'VIDEO') return;
-      vid.muted = true;
-      vid.play().then(() => { if (unmute) vid.muted = false; }).catch(() => {});
-    }
+    let userClicked = false
     function handleFirstInteraction() {
-      try { localStorage.setItem('myshop_sound_enabled', '1'); } catch(e) {}
+      userClicked = true;
       const vid = detailVideoRef.value;
       if (vid && vid.tagName === 'VIDEO' && !vid.paused) { vid.muted = false; }
       document.removeEventListener('click', handleFirstInteraction);
-    }
-    function isSoundEnabled() {
-      try { return localStorage.getItem('myshop_sound_enabled') === '1'; } catch(e) { return false; }
     }
     function startAutoSlide() {
       stopAutoSlide();
@@ -368,7 +361,7 @@ const timedProducts = computed(() => eventProducts.value)
         setTimeout(() => {
           const vid = detailVideoRef.value;
           if (vid && vid.tagName === 'VIDEO') {
-            vid.muted = !isSoundEnabled();
+            vid.muted = !userClicked;
             vid.onended = () => {
               detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
             };
@@ -396,7 +389,7 @@ const timedProducts = computed(() => eventProducts.value)
       if (isVideoUrl(url)) {
         nextTick(() => {
           const vid = detailVideoRef.value;
-          if (vid) { vid.src = url; tryPlayVideo(vid, true); }
+          if (vid) { vid.src = url; vid.muted = true; vid.play().then(() => { vid.muted = false; }).catch(() => {}); }
         });
       }
       nextTick(() => { startAutoSlide(); });
@@ -410,7 +403,7 @@ const timedProducts = computed(() => eventProducts.value)
       const vid = detailVideoRef.value;
       if (!vid || vid.tagName !== 'VIDEO') return;
       vid.muted = true;
-      vid.play().catch(() => {});
+      vid.play().then(() => { if (userClicked) vid.muted = false; }).catch(() => {});
     }
 
     const currentVideoSrc = computed(() => {
@@ -424,7 +417,7 @@ const timedProducts = computed(() => eventProducts.value)
         const vid = detailVideoRef.value;
         if (vid && vid.tagName === 'VIDEO') {
           vid.muted = true;
-          vid.play().catch(() => {});
+          vid.play().then(() => { if (userClicked) vid.muted = false; }).catch(() => {});
         }
       });
     })
@@ -721,9 +714,7 @@ const timedProducts = computed(() => eventProducts.value)
     window.addEventListener('popstate', initRoute)
 
     onMounted(() => {
-      if (!isSoundEnabled()) {
-        document.addEventListener('click', handleFirstInteraction, { once: true });
-      }
+      document.addEventListener('click', handleFirstInteraction, { once: true });
       initRoute()
       if (page.value !== 'detail') {
         checkSetup()
