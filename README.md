@@ -163,3 +163,39 @@ CMD ["./my-shop"]
 ## 📄 许可证
 
 LGPL 3.0 License
+
+Data/
+├── uploads_temp
+│   ├── <任务ID> 
+│   │   └── 上传处理前的临时文件
+│   └── <任务ID> 
+│       └── 上传处理前的临时文件
+├── shop/
+│   ├── <商品ID>/
+│   │   ├── file/                                  #放发货的文件
+│   │   │   └── <商品ID>.zip / 上传的单个文件   
+│   │   ├── media/
+│   │   │   ├── video/
+│   │   │   │   ├── vedio/
+│   │   │   │   │   ├── VID_<商品ID>_<ID>.格式
+│   │   │   │   │   └── VID_<商品ID>_<ID>.格式
+│   │   │   │   └── show_frame/
+│   │   │   │       ├── SF_<商品ID>_<ID>.格式（与对应视频使用相同ID）
+│   │   │   │       └── SF_<商品ID>_<ID>.格式（与对应视频使用相同ID）
+│   │   │   └── image/
+│   │   │       ├── IMG_<商品ID>_<ID>.格式
+│   │   │       └── IMG_<商品ID>_<ID>.格式
+│   │   └── bakup/
+│   │       └── bakup.json      #商品信息与媒体显示顺序备份文件 
+│   └──<商品ID>/
+│       └── ......
+└── system/
+    ├── data_db/
+        └── shop.db/
+    ├── logo/
+    │   └── logo.格式
+    ├── fronts/
+    │   ├── fronts_<name>.格式
+    │   └── fronts_<name>.格式
+    └── others/
+        └── ......

@@ -4,9 +4,33 @@ from app.database import engine
 from app.models import Product, ProductCategory, CardKey, BlindBoxPool, ProductSku, RecommendProduct, ProductFile, AppSetting
 from app.auth import require_admin
 from app.config import config
+from app.data_integrity import record_missing_file, get_open_issues, resolve_issue, get_open_count
 import os, uuid, shutil, datetime, json, zipfile
 
 router = APIRouter()
+
+def get_product_dir(pid):
+    """获取商品数据目录"""
+    d = os.path.join(config.SHOP_DATA_DIR, str(pid))
+    for sub in ["media/video/vedio", "media/video/show_frame", "media/image", "bakup"]:
+        os.makedirs(os.path.join(d, sub), exist_ok=True)
+    return d
+
+def ensure_product_file_dir(pid):
+    """有需要时创建 file 目录"""
+    d = os.path.join(config.SHOP_DATA_DIR, str(pid), "file")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def save_product_backup(pid, product_data):
+    """保存商品备份到 bakup.json"""
+    try:
+        d = get_product_dir(pid)
+        bakup_path = os.path.join(d, "bakup", "bakup.json")
+        with open(bakup_path, "w", encoding="utf-8") as f:
+            json.dump(product_data, f, ensure_ascii=False, indent=2, default=str)
+    except Exception as e:
+        print(f"[Backup Error] product {pid}: {e}")
 
 def is_discount_active(product):
     """检查折扣是否有效"""
@@ -159,6 +183,7 @@ async def create_product(data: dict, request: Request):
             end_at=parse_dt(data.get("end_at"))
         )
         s.add(p); s.commit()
+        save_product_backup(p.id, {c.name: getattr(p, c.name) for c in p.__table__.columns})
         return {c.name: getattr(p, c.name) for c in p.__table__.columns}
 
 @router.put("/api/admin/products/{pid}")
@@ -175,6 +200,7 @@ async def update_product(pid: int, data: dict, request: Request):
                 setattr(p, k, v)
         p.updated_at = datetime.datetime.utcnow()
         s.commit()
+        save_product_backup(pid, {c.name: getattr(p, c.name) for c in p.__table__.columns})
         return {c.name: getattr(p, c.name) for c in p.__table__.columns}
 
 @router.delete("/api/admin/products/{pid}")
@@ -213,6 +239,10 @@ async def delete_product(pid: int, request: Request):
         s.query(ProductFile).filter(ProductFile.product_id == pid).delete()
         s.query(Product).filter(Product.id == pid).delete()
         s.commit()
+        product_dir = os.path.join(config.SHOP_DATA_DIR, str(pid))
+        if os.path.exists(product_dir):
+            try: shutil.rmtree(product_dir)
+            except: pass
     return {"message": "已删除"}
 
 @router.delete("/api/admin/products/{pid}/delete-file")
@@ -233,68 +263,70 @@ async def update_pool(pid: int, data: dict, request: Request):
         s.query(BlindBoxPool).filter(BlindBoxPool.product_id == pid).delete()
         for e in data["entries"]:
             s.add(BlindBoxPool(product_id=pid, prize_id=e["prize_id"], probability=e["probability"]))
-        s.commit()
+        p = s.query(Product).filter(Product.id == pid).first()
+        if p:
+            s.commit()
+            save_product_backup(pid, {c.name: getattr(p, c.name) for c in p.__table__.columns})
+        else:
+            s.commit()
     return {"message": "奖池已更新"}
 
 @router.post("/api/admin/upload")
-async def upload_file(request: Request, file: UploadFile = File(...), file_type: str = Form(default="image")):
+async def upload_file(request: Request, file: UploadFile = File(...), file_type: str = Form(default="image"), product_id: int = Form(default=0)):
     await require_admin(request)
-    
-    # 根据文件类型确定存储位置
-    if file_type == "logo":
-        target_dir = os.path.join(config.UPLOAD_DIR, "images", "logos")
-    elif file_type == "product_image":
-        target_dir = os.path.join(config.UPLOAD_DIR, "images", "products")
-    else:  # default to other images
-        target_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
-    
-    os.makedirs(target_dir, exist_ok=True)
     
     allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico', '.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'}
     
-    # 从系统设置读取上传大小限制
     with Session(engine) as s:
         setting = s.query(AppSetting).filter(AppSetting.key == "config_upload_max_size").first()
-        max_file_size = (int(setting.value) if setting else 1024) * 1024 * 1024  # MB转bytes
+        max_file_size = (int(setting.value) if setting else 1024) * 1024 * 1024
     
-    # 获取文件名和扩展名
     filename = file.filename or "unknown"
     ext = os.path.splitext(filename)[1].lower()
     
-    # 检查扩展名
     if ext not in allowed_extensions:
-        error_msg = f"不支持的文件类型: '{ext}' (文件名: {filename})，允许的类型: {', '.join(sorted(allowed_extensions))}"
-        print(f"[Upload Error] {error_msg}")
-        raise HTTPException(400, error_msg)
+        raise HTTPException(400, f"不支持的文件类型: {ext}")
     
-    # 读取文件内容
-    try:
-        content = await file.read()
-    except Exception as e:
-        error_msg = f"读取文件失败: {str(e)}"
-        print(f"[Upload Error] {error_msg}")
-        raise HTTPException(400, error_msg)
-    
-    # 检查文件大小
+    content = await file.read()
     if len(content) > max_file_size:
-        error_msg = f"文件大小超过限制(最大{max_file_size//1024//1024}MB)，当前大小: {len(content) / 1024 / 1024:.1f}MB"
-        print(f"[Upload Error] {error_msg}")
-        raise HTTPException(400, error_msg)
+        raise HTTPException(400, f"文件大小超过限制")
     
-    # 生成文件名
-    name = f"{uuid.uuid4().hex}{ext}"
+    is_video = ext in ('.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp')
+    
+    if product_id > 0:
+        pid = product_id
+        if file_type == "logo":
+            target_dir = os.path.join(config.UPLOAD_DIR, "images", "logos")
+            name = f"{uuid.uuid4().hex}{ext}"
+        else:
+            if is_video:
+                target_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
+                prefix = f"VID_{pid}_"
+            else:
+                target_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "image")
+                prefix = f"IMG_{pid}_"
+            os.makedirs(target_dir, exist_ok=True)
+            existing = [f for f in os.listdir(target_dir) if f.startswith(prefix)]
+            next_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
+            name = f"{prefix}{next_id}{ext}"
+    else:
+        if file_type == "logo":
+            target_dir = os.path.join(config.UPLOAD_DIR, "images", "logos")
+        elif file_type == "product_image":
+            target_dir = os.path.join(config.UPLOAD_DIR, "images", "products")
+        else:
+            target_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
+        os.makedirs(target_dir, exist_ok=True)
+        name = f"{uuid.uuid4().hex}{ext}"
+    
     path = os.path.join(target_dir, name)
-    
-    # 保存文件
     with open(path, "wb") as f:
         f.write(content)
     
-    # 计算相对路径用于API访问
     rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
     
-    # 视频自动生成缩略图
     thumb_url = ""
-    if ext in ('.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'):
+    if is_video:
         try:
             import cv2
             cap = cv2.VideoCapture(path)
@@ -302,18 +334,31 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
                 cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
                 ret, frame = cap.read()
                 if ret:
-                    thumb_name = f"{uuid.uuid4().hex}.jpg"
-                    thumb_path = os.path.join(target_dir, thumb_name)
-                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    h, w = frame.shape[:2]
+                    if max(h, w) > 200:
+                        scale = 200 / max(h, w)
+                        frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
+                    if product_id > 0:
+                        thumb_dir = os.path.join(config.SHOP_DATA_DIR, str(product_id), "media", "video", "show_frame")
+                        os.makedirs(thumb_dir, exist_ok=True)
+                        existing_sf = [f for f in os.listdir(thumb_dir) if f.startswith(f"SF_{product_id}_")]
+                        next_sf_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing_sf if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
+                        thumb_name = f"SF_{product_id}_{next_sf_id}.jpg"
+                    else:
+                        thumb_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
+                        os.makedirs(thumb_dir, exist_ok=True)
+                        thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
+                    thumb_path = os.path.join(thumb_dir, thumb_name)
+                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    cap.release()
                     thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
                     thumb_url = f"/api/image/{thumb_rel}"
                 cap.release()
         except Exception as e:
             print(f"[Thumbnail Error] {e}")
     
-    print(f"[Upload Success] {filename} -> {rel_path}")
     return {
-        "url": f"/api/image/{rel_path}", 
+        "url": f"/api/image/{rel_path}",
         "path": path,
         "relative_path": rel_path,
         "thumbnail": thumb_url
@@ -331,8 +376,19 @@ async def generate_video_thumbnail(pid: int, request: Request, video_url: str = 
             if not full_url:
                 raise HTTPException(400, "该商品没有视频")
             video_url = full_url.split(",")[0].strip()
-        video_path = os.path.join(config.UPLOAD_DIR, video_url.replace("/api/image/", ""))
-        if not os.path.exists(video_path):
+        
+        video_path = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
+        if os.path.exists(video_path):
+            for f in os.listdir(video_path):
+                if video_url.endswith(f):
+                    video_path = os.path.join(video_path, f)
+                    break
+            else:
+                video_path = ""
+        else:
+            video_path = ""
+        
+        if not video_path:
             raise HTTPException(404, "视频文件不存在")
         try:
             import cv2
@@ -341,11 +397,15 @@ async def generate_video_thumbnail(pid: int, request: Request, video_url: str = 
                 cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
                 ret, frame = cap.read()
                 if ret:
-                    thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
-                    thumb_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
+                    h, w = frame.shape[:2]
+                    if max(h, w) > 200:
+                        scale = 200 / max(h, w)
+                        frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
+                    thumb_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "show_frame")
                     os.makedirs(thumb_dir, exist_ok=True)
+                    thumb_name = f"SF_{pid}_{uuid.uuid4().hex}.jpg"
                     thumb_path = os.path.join(thumb_dir, thumb_name)
-                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                     cap.release()
                     thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
                     return {"thumbnail": f"/api/image/{thumb_rel}"}
@@ -356,13 +416,51 @@ async def generate_video_thumbnail(pid: int, request: Request, video_url: str = 
         except Exception as e:
             raise HTTPException(500, f"生成缩略图失败: {str(e)}")
 
+@router.get("/api/admin/products/{pid}/thumbnails")
+async def batch_video_thumbnails(pid: int, request: Request, video_urls: str = ""):
+    """批量获取视频缩略图"""
+    if not video_urls:
+        raise HTTPException(400, "缺少 video_urls 参数")
+    urls = [u.strip() for u in video_urls.split(",") if u.strip()]
+    result = {}
+    thumb_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
+    os.makedirs(thumb_dir, exist_ok=True)
+    for url in urls:
+        video_path = os.path.join(config.UPLOAD_DIR, url.replace("/api/image/", ""))
+        if not os.path.exists(video_path):
+            video_path = os.path.join(config.SHOP_DATA_DIR, url.replace("/api/image/", ""))
+        if not os.path.exists(video_path):
+            continue
+        try:
+            import cv2
+            cap = cv2.VideoCapture(video_path)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
+                ret, frame = cap.read()
+                if ret:
+                    thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
+                    thumb_path = os.path.join(thumb_dir, thumb_name)
+                    h, w = frame.shape[:2]
+                    if max(h, w) > 200:
+                        scale = 200 / max(h, w)
+                        frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
+                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    cap.release()
+                    thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
+                    result[url] = f"/api/image/{thumb_rel}"
+                    continue
+                cap.release()
+        except Exception:
+            pass
+    return {"thumbnails": result}
+
 # 批量上传商品文件（先存到temp）
 @router.post("/api/admin/products/{pid}/upload-files")
 async def upload_multiple_files(pid: int, request: Request, files: list[UploadFile] = File(...)):
     await require_admin(request)
     
     # 确保temp目录存在
-    temp_dir = os.path.join(config.UPLOAD_DIR, "temp")
+    temp_dir = config.TEMP_DIR
     os.makedirs(temp_dir, exist_ok=True)
     
     uploaded_files = []
@@ -390,7 +488,7 @@ async def upload_multiple_files(pid: int, request: Request, files: list[UploadFi
 async def clear_temp_folder(request: Request):
     await require_admin(request)
     
-    temp_dir = os.path.join(config.UPLOAD_DIR, "temp")
+    temp_dir = config.TEMP_DIR
     cleared_count = 0
     
     if os.path.exists(temp_dir):
@@ -517,7 +615,7 @@ async def compress_temp_files_to_product(pid: int, request: Request, temp_files:
         if not product:
             raise HTTPException(404, "商品不存在")
         
-        temp_dir = os.path.join(config.UPLOAD_DIR, "temp")
+        temp_dir = config.TEMP_DIR
         zip_dir = os.path.join(config.UPLOAD_DIR, "zip_files")
         os.makedirs(zip_dir, exist_ok=True)
         
@@ -698,3 +796,20 @@ def get_public_recommends():
                 "products": products
             })
         return result
+
+# ========== 数据完整性校验 ==========
+@router.get("/api/admin/data-integrity/issues")
+async def list_integrity_issues(request: Request):
+    await require_admin(request)
+    return {"issues": get_open_issues(), "count": get_open_count()}
+
+@router.post("/api/admin/data-integrity/resolve/{issue_id}")
+async def resolve_integrity_issue(issue_id: str, request: Request):
+    await require_admin(request)
+    remaining = resolve_issue(issue_id)
+    return {"remaining": remaining}
+
+@router.get("/api/admin/data-integrity/count")
+async def integrity_count(request: Request):
+    await require_admin(request)
+    return {"count": get_open_count()}

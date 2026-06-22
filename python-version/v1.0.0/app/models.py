@@ -63,6 +63,7 @@ class Product(Base):
     image_url = Column(String(500), default="")
     images = Column(Text, default="")
     video_url = Column(String(500), default="")
+    video_thumbnails = Column(Text, default="")
     featured = Column(Boolean, default=False)
     is_hot = Column(Boolean, default=False)
     is_new = Column(Boolean, default=False)

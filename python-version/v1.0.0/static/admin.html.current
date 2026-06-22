@@ -311,6 +311,7 @@ input:checked + .slider:before{transform:translateX(20px)}
           <div class="sc"><div class="sn">{{ da.total_users||0 }}</div><div class="sl">用户数</div></div>
           <div class="sc" style="background:rgba(255,167,38,0.1)"><div class="sn" style="color:var(--warning)">{{ da.low_stock_count||0 }}</div><div class="sl">库存紧张</div></div>
           <div class="sc" style="background:rgba(239,83,80,0.1)"><div class="sn" style="color:var(--danger)">{{ da.out_of_stock_count||0 }}</div><div class="sl">已缺货</div></div>
+          <div class="sc" :style="integrityCount>0?'background:rgba(244,67,54,0.15)':''" @click="if(integrityCount>0){checkIntegrity()}" style="cursor:pointer"><div class="sn" :style="integrityCount>0?'color:#f44336':''">{{ integrityCount }}</div><div class="sl">未处理异常</div></div>
         </div>
       </div>
       <div class="bd">
@@ -1405,7 +1406,6 @@ MNOP-1111-QRST-2222" style="min-height:150px;font-family:monospace;font-size:0.9
     </div>
   </div>
 </div>
-</template>
 <div class="tc"><div v-for="t in ts" :key="t.id" class="tt" :class="t.ty">{{ t.msg }}</div></div>
 <div v-if="showDeliverModal" class="modal-overlay" @click.self="showDeliverModal=false">
   <div class="modal" style="max-width:500px">
@@ -1429,6 +1429,28 @@ MNOP-1111-QRST-2222" style="min-height:150px;font-family:monospace;font-size:0.9
     <div class="confirm-footer">
       <button class="btn btn-a" @click="confirmResolveFn(false)">取消</button>
       <button class="btn btn-p" @click="confirmResolveFn(true)">确定</button>
+    </div>
+  </div>
+</div>
+<!-- 数据完整性校验弹窗 -->
+<div v-if="showIntegrityPopup" class="confirm-overlay" @click.self="if(integrityCount===0)showIntegrityPopup=false">
+  <div class="confirm-dialog" style="max-width:600px;max-height:80vh">
+    <div class="confirm-header"><h3><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i> 数据完整性校验 ({{ integrityCount }}项异常)</h3></div>
+    <div class="confirm-body" style="max-height:50vh;overflow-y:auto;padding:0">
+      <div v-for="issue in integrityIssues" :key="issue.id" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;margin-bottom:4px"><span style="color:var(--primary)">商品#{{ issue.product_id }}</span> {{ issue.product_name }}</div>
+          <div style="font-size:12px;color:var(--dim);word-break:break-all">
+            <span :style="{color:issue.file_type==='video'?'var(--warning)':issue.file_type==='thumbnail'?'#9c27b0':'var(--text)'}">{{ issue.file_type==='image'?'图片':issue.file_type==='video'?'视频':issue.file_type==='thumbnail'?'缩略图':'访问缺失' }}</span>
+            — {{ issue.file_url }}
+          </div>
+        </div>
+        <button class="btn btn-p" style="flex-shrink:0;font-size:12px;padding:4px 12px" @click="resolveIntegrityIssue(issue.id)">已解决</button>
+      </div>
+      <div v-if="!integrityIssues.length" style="text-align:center;padding:2rem;color:var(--dim)"><i class="fas fa-check-circle" style="color:var(--success);font-size:2rem;display:block;margin-bottom:8px"></i>所有文件完整，无异常</div>
+    </div>
+    <div class="confirm-footer">
+      <button class="btn btn-a" @click="showIntegrityPopup=false">关闭</button>
     </div>
   </div>
 </div>
@@ -1607,7 +1629,7 @@ async function changeTheme(theme){
 const ps=ref([]),or=ref([]),us=ref([]),cs=ref([]),ct=ref([]),ks=ref([]),da=ref({})
 const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'})
 const selectedKeys=ref([])
-const showProductModal=ref(false),editingProduct=ref(null),fileInput=ref(null),mediaFileInput=ref(null),dragIdx=ref(-1),dragEl=ref(null),uploadProgress=ref(-1),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],mediaList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
+const showProductModal=ref(false),editingProduct=ref(null),fileInput=ref(null),mediaFileInput=ref(null),dragIdx=ref(-1),dragEl=ref(null),uploadProgress=ref(-1),videoThumbMap=ref({}),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],mediaList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
 const productFiles=ref([])
 const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),quickGenerateCount=ref(100)
 const refreshingStock=ref(false),stockUpdateTime=ref({}),stockPollInterval=ref(null)
@@ -1629,6 +1651,8 @@ function openProductModal(p){
     editingProduct.value=p.id;
     const mediaItems=p.images?p.images.split(',').filter(u=>u.trim()):(p.image_url?[p.image_url]:[]);
     if(p.video_url&&!mediaItems.some(u=>u.includes('.mp4')||u.includes('.webm')||u.includes('.mov'))){p.video_url.split(',').filter(u=>u.trim()).forEach(v=>mediaItems.push(v));}
+    videoThumbMap.value={};
+    if(p.video_thumbnails){const thumbs=p.video_thumbnails.split(',');const vids2=p.video_url?p.video_url.split(',').filter(u=>u.trim()):[];vids2.forEach((v,i)=>{if(thumbs[i]&&thumbs[i].trim())videoThumbMap.value[v.trim()]=thumbs[i].trim();});}
     productForm.value={
       name:p.name||'',short_description:p.short_description||'',description:p.description||'',content:p.content||'',
       price:p.price||0,original_price:p.original_price,cost_price:p.cost_price,discount:p.discount||0,
@@ -1645,6 +1669,7 @@ function openProductModal(p){
     if(p.id)loadProductFiles(p.id);
   }else{
     editingProduct.value=null;
+    videoThumbMap.value={};
     productForm.value={
       name:'',short_description:'',description:'',content:'',
       price:0,original_price:null,cost_price:null,discount:0,
@@ -1718,6 +1743,7 @@ async function handleMediaUpload(e){
         const fd=new FormData();
         fd.append('file',file);
         fd.append('file_type','product_image');
+        if(editingProduct.value)fd.append('product_id',editingProduct.value);
         const xhr=new XMLHttpRequest();
         xhr.open('POST','/api/admin/upload');
         const tk=token.value;
@@ -1739,6 +1765,7 @@ async function handleMediaUpload(e){
         xhr.send(fd);
       });
       productForm.value.mediaList.push(d.url);
+      if(d.thumbnail){videoThumbMap.value[d.url]=d.thumbnail;}
       tst('上传成功: '+file.name,'ok');
     }catch(err){tst(err.message,'er')}
     uploadProgress.value=-1;
@@ -1748,6 +1775,7 @@ async function handleMediaUpload(e){
 async function removeProductMedia(idx){
   const url=productForm.value.mediaList[idx];
   productForm.value.mediaList.splice(idx,1);
+  if(url){delete videoThumbMap.value[url];}
   if(url&&url.startsWith('/api/image/')&&editingProduct.value){
     try{await api.rq('DELETE','/api/admin/products/'+editingProduct.value+'/delete-file',{file:url})}catch(e){}
   }
@@ -1830,7 +1858,7 @@ async function loadRecommends(){
   }catch(e){console.error(e);}
 }
 function closeProductModal(){showProductModal.value=false;editingProduct.value=null}
-function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=d.mediaList.join(',');d.video_url=vids.join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
+function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=d.mediaList.join(',');d.video_url=vids.join(',');d.video_thumbnails=vids.map(v=>videoThumbMap.value[v]||'').join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
 async function deleteProduct(){if(!editingProduct.value)return;if(!(await confirmAsync('确定删除此商品？此操作不可恢复！')))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
 function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'high'}
 function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'available'}
@@ -1854,6 +1882,9 @@ const newPromo=ref({code:'',type:'percentage',value:0,min_amount:0,max_uses:0,ex
 const newRedeem=ref({code:'',coupon_id:0,give_count:1,max_uses:0,expires_at:'',remark:''})
 const inviteRecords=ref([])
 const invSettings=ref({reward_new_user:0,reward_inviter:0,reward_coupon:0,reward_coupon_count:1})
+const integrityIssues=ref([])
+const showIntegrityPopup=ref(false)
+const integrityCount=ref(0)
 const couponRules=ref([])
 const showAddRule=ref(false)
 const newRule=ref({name:'',type:'register',coupon_id:0,give_count:1,product_id:0,category_id:0,min_order_amount:0,enabled:true})
@@ -1968,6 +1999,7 @@ async function ld(){
     }
     // 异步加载数据，不阻塞页面渲染
     loadAll()
+    checkIntegrity()
     api.rq('GET','/api/admin/dashboard?period=0').then(d=>da.value=d).catch(()=>{})
     api.rq('GET','/api/admin/dashboard/charts').then(d=>charts.value=d).catch(()=>{})
     api.rq('GET','/api/admin/config').then(d=>{if(d.config)st.value={...st.value,...d.config}}).catch(()=>{})
@@ -2081,6 +2113,27 @@ const orFilter=ref('')
 const filteredOrders=computed(()=>{if(!orFilter.value)return or.value;return or.value.filter(function(o){return o.status===orFilter.value})})
 function getCouponName(couponId){const c=coupons.value.find(x=>x.id===couponId);return c?c.name:'未选择'}
 async function loadCoupons(){try{const d=await api.rq('GET','/api/admin/coupons');coupons.value=d||[]}catch(e){console.error(e)}}
+
+// 数据完整性校验
+async function checkIntegrity(){
+  try{
+    const issues=await api.rq('GET','/api/admin/data-integrity/issues');
+    integrityIssues.value=issues.issues||[];
+    integrityCount.value=issues.count||0;
+    if(integrityCount.value>0){showIntegrityPopup.value=true;}
+  }catch(e){}
+}
+async function resolveIntegrityIssue(issueId){
+  try{
+    const r=await api.rq('POST','/api/admin/data-integrity/resolve/'+issueId);
+    integrityIssues.value=integrityIssues.value.filter(i=>i.id!==issueId);
+    integrityCount.value=r.remaining||0;
+    if(integrityCount.value===0){showIntegrityPopup.value=false;tst('所有问题已解决','ok');}
+  }catch(e){tst('操作失败','er')}
+}
+async function loadIntegrityCount(){
+  try{const r=await api.rq('GET','/api/admin/data-integrity/count');integrityCount.value=r.count||0;}catch(e){}
+}
 async function addCoupon(){const d=newCoupon.value;if(!d.name){tst('请填写优惠券名称','er');return}if(!d.value){tst('请填写优惠值','er');return}try{await api.rq('POST','/api/admin/coupons',{...d,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null});newCoupon.value={name:'',type:'percentage',value:0,min_amount:0,total_count:0,expires_at:''};showAddCoupon.value=false;loadCoupons();tst('优惠券已添加','ok')}catch(e){tst('添加失败: '+e.message,'er')}}
 async function delCoupon(id){if(!(await confirmAsync('确定删除此优惠券？')))return;try{await api.rq('DELETE','/api/admin/coupons/'+id);loadCoupons();tst('已删除','ok')}catch(e){tst('删除失败: '+e.message,'er')}}
 function giveCoupon(coupon){giveCouponId.value=coupon.id;giveCouponName.value=coupon.name;giveUsername.value="";showGiveCoupon.value=true}

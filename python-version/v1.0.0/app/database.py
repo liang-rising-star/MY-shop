@@ -39,6 +39,7 @@ def init_db():
     pmissing = {
         'discount_mode': 'VARCHAR(20) DEFAULT "none"',
         'discount_percent': 'FLOAT DEFAULT 0',
+        'video_thumbnails': 'TEXT DEFAULT ""',
     }
     for col, typ in pmissing.items():
         if col not in pcols:

@@ -16,22 +16,23 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    upload_dir = config.UPLOAD_DIR
-    os.makedirs(upload_dir, exist_ok=True)
+    os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(config.TEMP_DIR, exist_ok=True)
+    os.makedirs(config.SHOP_DATA_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     
     subdirs = [
-        "temp", "images", "images/products", "images/logos", "images/others",
+        "images/products", "images/logos", "images/others",
         "product_files", "zip_files", "software", "documents"
     ]
     
     for subdir in subdirs:
-        full_path = os.path.join(upload_dir, subdir)
+        full_path = os.path.join(config.UPLOAD_DIR, subdir)
         os.makedirs(full_path, exist_ok=True)
     
-    temp_dir = os.path.join(upload_dir, "temp")
-    if os.path.exists(temp_dir):
-        for filename in os.listdir(temp_dir):
-            file_path = os.path.join(temp_dir, filename)
+    if os.path.exists(config.TEMP_DIR):
+        for filename in os.listdir(config.TEMP_DIR):
+            file_path = os.path.join(config.TEMP_DIR, filename)
             try:
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
@@ -427,9 +428,35 @@ async def get_image_via_api(file_path: str, request: Request):
     full_path = os.path.join(config.UPLOAD_DIR, file_path)
     
     if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        if file_path.startswith("shop/"):
+            full_path = os.path.join(config.DATA_DIR, file_path)
+        else:
+            full_path = os.path.join(config.SHOP_DATA_DIR, file_path)
+    
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        from app.data_integrity import record_missing_file
+        url = f"/api/image/{file_path}"
+        pid = 0
+        pname = "系统文件"
+        ftype = "unknown"
+        parts = file_path.split("/")
+        if len(parts) >= 2 and parts[0] == "shop":
+            try:
+                pid = int(parts[1])
+                pname = f"商品#{pid}"
+                if "video" in parts:
+                    ftype = "video"
+                elif "image" in parts:
+                    ftype = "image"
+                elif "show_frame" in parts:
+                    ftype = "thumbnail"
+            except: pass
+        record_missing_file(url, pid, pname, ftype)
         raise HTTPException(status_code=404, detail="文件不存在")
     
-    if not os.path.realpath(full_path).startswith(os.path.realpath(config.UPLOAD_DIR)):
+    if not (os.path.realpath(full_path).startswith(os.path.realpath(config.UPLOAD_DIR)) or 
+            os.path.realpath(full_path).startswith(os.path.realpath(config.SHOP_DATA_DIR)) or
+            os.path.realpath(full_path).startswith(os.path.realpath(config.DATA_DIR))):
         raise HTTPException(status_code=403, detail="访问被拒绝")
     
     ext = os.path.splitext(full_path)[1].lower()
@@ -499,7 +526,7 @@ async def admin_login_page():
 @app.get("/admin")
 @app.get("/admin/{path:path}")
 async def admin_page(path: str = ""):
-    return FileResponse(os.path.join(BASE_DIR, "static", "admin.html"), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    return FileResponse(os.path.join(BASE_DIR, "static", "admin.html"), headers={"Cache-Control": "no-cache, no-store, must-revalidate", "ETag": "v2"})
 
 @app.get("/{path:path}")
 def serve_frontend(path: str = ""):

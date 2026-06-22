@@ -35,6 +35,7 @@ const app = createApp({
     const detailMediaIdx = ref(0)
     const detailVideoRef = ref(null)
     const videoThumbnails = ref({})
+    const failedMedia = ref({})
     const lastOrder = ref(null)
     const search = ref('')
     const catFilter = ref('')
@@ -176,13 +177,20 @@ const app = createApp({
         const vids = product.video_url.split(',').filter(u=>u.trim())
         vids.forEach(url => imgs.push(url))
       }
-      imgs.forEach(url => {
-        if (isVideoUrl(url) && !videoThumbnails.value[url]) {
+      if (product.video_thumbnails) {
+        const thumbs = product.video_thumbnails.split(',')
+        const vids = (product.video_url || '').split(',').filter(u=>u.trim())
+        vids.forEach((url, i) => { if (thumbs[i] && thumbs[i].trim()) { videoThumbnails.value[url] = thumbs[i].trim(); } })
+      }
+      const missing = imgs.filter(url => isVideoUrl(url) && !videoThumbnails.value[url])
+      if (missing.length > 0) {
+        const promises = missing.map(url =>
           fetch('/api/admin/products/' + pid + '/thumbnail?video_url=' + encodeURIComponent(url)).then(r=>r.json()).then(data=>{
             if (data.thumbnail) { videoThumbnails.value[url] = data.thumbnail; }
-          }).catch(()=>{});
-        }
-      })
+          }).catch(()=>{})
+        )
+        Promise.all(promises)
+      }
       detailMediaList.value = [...imgs]
       detailMediaIdx.value = 0
       preloadMedia(imgs)
@@ -811,7 +819,7 @@ const timedProducts = computed(() => eventProducts.value)
       page, scrolled, menuOpen, isReg, token, toasts,
       setupRequired, setupUser, setupPass, setupEmail, setupErr, adminView,
       products, categories, orders, allOrders, coupons, myCoupons, cardKeys, reviews,
-      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, getVideoThumb, handleVideoLoaded, currentVideoSrc, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, isVideoUrl, lastOrder, search, catFilter, typeFilter,
+      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, failedMedia, getVideoThumb, handleVideoLoaded, currentVideoSrc, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, isVideoUrl, lastOrder, search, catFilter, typeFilter,
       authUser, authPass, authEmail, authErr, captchaKey, captchaImage, captchaCode,
       adminTab, adminMenu, showProductForm, editingProduct, prodForm,
       catForm, couponForm, keysInput, keyProductID, claimCode, buyQty,

@@ -13,6 +13,7 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+Data/
 
 # Uploads and Media
 uploads/
