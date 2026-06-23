@@ -22,6 +22,70 @@ def ensure_product_file_dir(pid):
     os.makedirs(d, exist_ok=True)
     return d
 
+def _migrate_product_files(pid, data):
+    """将旧路径的文件迁移到 shop/<pid>/media/ 下"""
+    get_product_dir(pid)
+    updates = {}
+
+    for field, is_video, sub_dir in [
+        ("images", False, "image"),
+        ("video_url", True, "video/vedio"),
+        ("video_thumbnails", True, "video/show_frame"),
+    ]:
+        urls = data.get(field, "")
+        if not urls:
+            continue
+        parts = [u.strip() for u in urls.split(",") if u.strip()]
+        new_parts = []
+        for url in parts:
+            if not url.startswith("/api/image/images/"):
+                new_parts.append(url)
+                continue
+            basename = os.path.basename(url)
+            if is_video:
+                dest_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", sub_dir)
+            else:
+                dest_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", sub_dir)
+            os.makedirs(dest_dir, exist_ok=True)
+            if sub_dir == "video/vedio":
+                prefix = f"VID_{pid}_"
+            elif sub_dir == "video/show_frame":
+                prefix = f"SF_{pid}_"
+            else:
+                prefix = f"IMG_{pid}_"
+            existing = [f for f in os.listdir(dest_dir) if f.startswith(prefix)]
+            next_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
+            ext = os.path.splitext(basename)[1]
+            new_name = f"{prefix}{next_id}{ext}"
+            src_candidates = [
+                os.path.join(config.UPLOAD_DIR, "images", "products", basename),
+                os.path.join(config.UPLOAD_DIR, "images", "others", basename),
+            ]
+            src = ""
+            for c in src_candidates:
+                if os.path.isfile(c):
+                    src = c
+                    break
+            dst = os.path.join(dest_dir, new_name)
+            if src:
+                shutil.copy2(src, dst)
+                os.remove(src)
+            new_url = f"/api/image/shop/{pid}/media/{sub_dir}/{new_name}"
+            new_parts.append(new_url)
+            if field == "images" and not updates.get("image_url"):
+                updates["image_url"] = new_url
+
+        if new_parts != parts:
+            updates[field] = ",".join(new_parts)
+
+    if updates:
+        with Session(engine) as s:
+            p = s.query(Product).filter(Product.id == pid).first()
+            if p:
+                for k, v in updates.items():
+                    setattr(p, k, v)
+                s.commit()
+
 def save_product_backup(pid, product_data):
     """保存商品备份到 bakup.json"""
     try:
@@ -184,6 +248,7 @@ async def create_product(data: dict, request: Request):
         )
         s.add(p); s.commit()
         save_product_backup(p.id, {c.name: getattr(p, c.name) for c in p.__table__.columns})
+        _migrate_product_files(p.id, data)
         return {c.name: getattr(p, c.name) for c in p.__table__.columns}
 
 @router.put("/api/admin/products/{pid}")
@@ -219,15 +284,21 @@ async def delete_product(pid: int, request: Request):
                 for img in product.images.split(","):
                     img = img.strip()
                     if img and img.startswith("/api/image/"):
-                        file_path = os.path.join(config.UPLOAD_DIR, img.replace("/api/image/", ""))
-                        if os.path.exists(file_path):
-                            try: os.remove(file_path)
-                            except: pass
+                        rel = img.replace("/api/image/", "")
+                        for base in [config.UPLOAD_DIR, config.SHOP_DATA_DIR, config.DATA_DIR]:
+                            fp = os.path.join(base, rel)
+                            if os.path.exists(fp):
+                                try: os.remove(fp)
+                                except: pass
+                                break
             if product.video_url and product.video_url.startswith("/api/image/"):
-                file_path = os.path.join(config.UPLOAD_DIR, product.video_url.replace("/api/image/", ""))
-                if os.path.exists(file_path):
-                    try: os.remove(file_path)
-                    except: pass
+                rel = product.video_url.replace("/api/image/", "")
+                for base in [config.UPLOAD_DIR, config.SHOP_DATA_DIR, config.DATA_DIR]:
+                    fp = os.path.join(base, rel)
+                    if os.path.exists(fp):
+                        try: os.remove(fp)
+                        except: pass
+                        break
             # 删除商品文件
             files = s.query(ProductFile).filter(ProductFile.product_id == pid).all()
             for f in files:
@@ -250,10 +321,13 @@ async def delete_product_file_by_url(pid: int, data: dict, request: Request):
     await require_admin(request)
     file_url = data.get("file", "")
     if file_url and file_url.startswith("/api/image/"):
-        file_path = os.path.join(config.UPLOAD_DIR, file_url.replace("/api/image/", ""))
-        if os.path.exists(file_path):
-            try: os.remove(file_path)
-            except: pass
+        rel = file_url.replace("/api/image/", "")
+        for base in [config.UPLOAD_DIR, config.SHOP_DATA_DIR, config.DATA_DIR]:
+            fp = os.path.join(base, rel)
+            if os.path.exists(fp):
+                try: os.remove(fp)
+                except: pass
+                break
     return {"message": "已删除"}
 
 @router.put("/api/admin/products/{pid}/blindbox")
@@ -436,13 +510,22 @@ async def batch_video_thumbnails(pid: int, request: Request, video_urls: str = "
         raise HTTPException(400, "缺少 video_urls 参数")
     urls = [u.strip() for u in video_urls.split(",") if u.strip()]
     result = {}
-    thumb_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
-    os.makedirs(thumb_dir, exist_ok=True)
     for url in urls:
-        video_path = os.path.join(config.UPLOAD_DIR, url.replace("/api/image/", ""))
-        if not os.path.exists(video_path):
-            video_path = os.path.join(config.SHOP_DATA_DIR, url.replace("/api/image/", ""))
-        if not os.path.exists(video_path):
+        video_path = ""
+        basename = os.path.basename(url)
+        for base in [config.UPLOAD_DIR, config.SHOP_DATA_DIR, config.DATA_DIR]:
+            candidate = os.path.join(base, url.replace("/api/image/", ""))
+            if os.path.isfile(candidate):
+                video_path = candidate
+                break
+        if not video_path and basename:
+            vedio_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
+            if os.path.isdir(vedio_dir):
+                for f in os.listdir(vedio_dir):
+                    if f == basename:
+                        video_path = os.path.join(vedio_dir, f)
+                        break
+        if not video_path:
             continue
         try:
             import cv2
@@ -451,7 +534,9 @@ async def batch_video_thumbnails(pid: int, request: Request, video_urls: str = "
                 cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
                 ret, frame = cap.read()
                 if ret:
-                    thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
+                    thumb_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "show_frame")
+                    os.makedirs(thumb_dir, exist_ok=True)
+                    thumb_name = f"SF_{pid}_{uuid.uuid4().hex}.jpg"
                     thumb_path = os.path.join(thumb_dir, thumb_name)
                     h, w = frame.shape[:2]
                     if max(h, w) > 200:
@@ -459,8 +544,7 @@ async def batch_video_thumbnails(pid: int, request: Request, video_urls: str = "
                         frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
                     cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                     cap.release()
-                    thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
-                    result[url] = f"/api/image/{thumb_rel}"
+                    result[url] = f"/api/image/shop/{pid}/media/video/show_frame/{thumb_name}"
                     continue
                 cap.release()
         except Exception:
