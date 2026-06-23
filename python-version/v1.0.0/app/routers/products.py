@@ -323,7 +323,13 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
     with open(path, "wb") as f:
         f.write(content)
     
-    rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
+    if product_id > 0:
+        if is_video:
+            rel_path = f"shop/{pid}/media/video/vedio/{name}"
+        else:
+            rel_path = f"shop/{pid}/media/image/{name}"
+    else:
+        rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
     
     thumb_url = ""
     if is_video:
@@ -351,8 +357,11 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
                     thumb_path = os.path.join(thumb_dir, thumb_name)
                     cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                     cap.release()
-                    thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
-                    thumb_url = f"/api/image/{thumb_rel}"
+                    if product_id > 0:
+                        thumb_url = f"/api/image/shop/{product_id}/media/video/show_frame/{thumb_name}"
+                    else:
+                        thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
+                        thumb_url = f"/api/image/{thumb_rel}"
                 cap.release()
         except Exception as e:
             print(f"[Thumbnail Error] {e}")
@@ -377,16 +386,21 @@ async def generate_video_thumbnail(pid: int, request: Request, video_url: str = 
                 raise HTTPException(400, "该商品没有视频")
             video_url = full_url.split(",")[0].strip()
         
-        video_path = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
-        if os.path.exists(video_path):
-            for f in os.listdir(video_path):
-                if video_url.endswith(f):
-                    video_path = os.path.join(video_path, f)
+        video_path = ""
+        basename = os.path.basename(video_url) if video_url else ""
+        
+        vedio_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
+        if os.path.isdir(vedio_dir) and basename:
+            for f in os.listdir(vedio_dir):
+                if f == basename:
+                    video_path = os.path.join(vedio_dir, f)
                     break
-            else:
-                video_path = ""
-        else:
-            video_path = ""
+        
+        if not video_path and video_url.startswith("/api/image/"):
+            rel = video_url.replace("/api/image/", "")
+            candidate = os.path.join(config.UPLOAD_DIR, rel)
+            if os.path.isfile(candidate):
+                video_path = candidate
         
         if not video_path:
             raise HTTPException(404, "视频文件不存在")
@@ -407,8 +421,7 @@ async def generate_video_thumbnail(pid: int, request: Request, video_url: str = 
                     thumb_path = os.path.join(thumb_dir, thumb_name)
                     cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                     cap.release()
-                    thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
-                    return {"thumbnail": f"/api/image/{thumb_rel}"}
+                    return {"thumbnail": f"/api/image/shop/{pid}/media/video/show_frame/{thumb_name}"}
                 cap.release()
             raise HTTPException(500, "无法读取视频帧")
         except HTTPException:

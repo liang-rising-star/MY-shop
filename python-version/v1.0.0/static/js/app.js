@@ -179,8 +179,8 @@ const app = createApp({
       }
       if (product.video_thumbnails) {
         const thumbs = product.video_thumbnails.split(',')
-        const vids = (product.video_url || '').split(',').filter(u=>u.trim())
-        vids.forEach((url, i) => { if (thumbs[i] && thumbs[i].trim()) { videoThumbnails.value[url] = thumbs[i].trim(); } })
+        const vids = (product.video_url || '').split(',')
+        vids.forEach((url, i) => { if (url && url.trim() && thumbs[i] && thumbs[i].trim()) { videoThumbnails.value[url.trim()] = thumbs[i].trim(); } })
       }
       const missing = imgs.filter(url => isVideoUrl(url) && !videoThumbnails.value[url])
       if (missing.length > 0) {

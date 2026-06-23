@@ -1653,7 +1653,7 @@ function openProductModal(p){
     const mediaItems=p.images?p.images.split(',').filter(u=>u.trim()):(p.image_url?[p.image_url]:[]);
     if(p.video_url&&!mediaItems.some(u=>u.includes('.mp4')||u.includes('.webm')||u.includes('.mov'))){p.video_url.split(',').filter(u=>u.trim()).forEach(v=>mediaItems.push(v));}
     videoThumbMap.value={};
-    if(p.video_thumbnails){const thumbs=p.video_thumbnails.split(',');const vids2=p.video_url?p.video_url.split(',').filter(u=>u.trim()):[];vids2.forEach((v,i)=>{if(thumbs[i]&&thumbs[i].trim())videoThumbMap.value[v.trim()]=thumbs[i].trim();});}
+    if(p.video_thumbnails){const thumbs=p.video_thumbnails.split(',');const vids2=p.video_url?p.video_url.split(','):[];vids2.forEach((v,i)=>{if(v&&v.trim()&&thumbs[i]&&thumbs[i].trim())videoThumbMap.value[v.trim()]=thumbs[i].trim();});}
     productForm.value={
       name:p.name||'',short_description:p.short_description||'',description:p.description||'',content:p.content||'',
       price:p.price||0,original_price:p.original_price,cost_price:p.cost_price,discount:p.discount||0,
