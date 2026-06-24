@@ -26,18 +26,18 @@ def _save_issues(issues):
     with open(f, "w", encoding="utf-8") as fh:
         json.dump(issues, fh, ensure_ascii=False, indent=2)
 
-def record_missing_file(file_url, product_id=0, product_name="系统文件", file_type="unknown"):
-    """记录缺失文件，同一URL只记一次"""
+def record_missing_file(file_path, product_id=0, product_name="系统文件", file_type="unknown"):
+    """记录缺失文件，同一路径只记一次"""
     issues = _load_issues()
-    existing = [i for i in issues if i["file_url"] == file_url and i["status"] == "open"]
+    existing = [i for i in issues if i["file_path"] == file_path and i["status"] == "open"]
     if existing:
         return
     issues.append({
-        "id": f"mf_{hash(file_url) % 1000000}",
+        "id": f"mf_{hash(file_path) % 1000000}",
         "product_id": product_id,
         "product_name": product_name,
         "file_type": file_type,
-        "file_url": file_url,
+        "file_path": file_path,
         "status": "open",
         "created_at": datetime.datetime.now().isoformat(),
     })

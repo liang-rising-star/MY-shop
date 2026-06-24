@@ -40,11 +40,11 @@ def _migrate_product_files(pid, data):
         parts = [u.strip() for u in urls.split(",") if u.strip()]
         new_parts = []
         for url in parts:
-            if not url.startswith("/api/image/upload/"):
+            if not url.startswith("/api/image/uploads_temp/"):
                 new_parts.append(url)
                 continue
             basename = os.path.basename(url)
-            parts_from_url = url.replace("/api/image/upload/", "").split("/")
+            parts_from_url = url.replace("/api/image/uploads_temp/", "").split("/")
             if len(parts_from_url) < 2:
                 new_parts.append(url)
                 continue
@@ -63,11 +63,12 @@ def _migrate_product_files(pid, data):
             next_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
             ext = os.path.splitext(basename)[1]
             new_name = f"{prefix}{next_id}{ext}"
-            src = os.path.join(config.DATA_DIR, "upload", task_id, basename)
+            src = os.path.join(config.TEMP_DIR, task_id, basename)
             dst = os.path.join(dest_dir, new_name)
             if os.path.isfile(src):
                 shutil.copy2(src, dst)
-                os.remove(src)
+                try: os.remove(src)
+                except OSError: pass
             new_url = f"/api/image/shop/{pid}/media/{sub_dir}/{new_name}"
             new_parts.append(new_url)
             if field == "images" and not updates.get("image_url"):
@@ -85,11 +86,11 @@ def _migrate_product_files(pid, data):
                 s.commit()
 
     for task_id in temp_dirs_to_clean:
-        task_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        task_dir = os.path.join(config.TEMP_DIR, task_id)
         if os.path.isdir(task_dir):
             shutil.rmtree(task_dir, ignore_errors=True)
     if task_id and task_id not in temp_dirs_to_clean:
-        task_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        task_dir = os.path.join(config.TEMP_DIR, task_id)
         if os.path.isdir(task_dir):
             shutil.rmtree(task_dir, ignore_errors=True)
 
@@ -388,7 +389,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
             next_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
             name = f"{prefix}{next_id}{ext}"
     elif task_id:
-        target_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        target_dir = os.path.join(config.TEMP_DIR, task_id)
         os.makedirs(target_dir, exist_ok=True)
         name = f"{uuid.uuid4().hex}{ext}"
     else:
@@ -409,7 +410,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
         else:
             rel_path = f"shop/{pid}/media/image/{name}"
     elif task_id:
-        rel_path = f"upload/{task_id}/{name}"
+        rel_path = f"uploads_temp/{task_id}/{name}"
     else:
         rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
     
@@ -460,7 +461,7 @@ async def cleanup_temp_files(request: Request, data: dict):
     await require_admin(request)
     task_id = data.get("task_id", "")
     if task_id:
-        task_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        task_dir = os.path.join(config.TEMP_DIR, task_id)
         if os.path.isdir(task_dir):
             shutil.rmtree(task_dir, ignore_errors=True)
     return {"message": "已清理"}

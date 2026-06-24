@@ -22,8 +22,8 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     
     subdirs = [
-        "images/products", "images/logos", "images/others",
-        "product_files", "zip_files", "software", "documents"
+        "images/logos", "images/others",
+        "product_files", "zip_files"
     ]
     
     for subdir in subdirs:
@@ -428,18 +428,22 @@ async def get_image_via_api(file_path: str, request: Request):
     full_path = os.path.join(config.UPLOAD_DIR, file_path)
     
     if not os.path.exists(full_path) or not os.path.isfile(full_path):
-        if file_path.startswith("shop/") or file_path.startswith("upload/"):
+        if file_path.startswith("shop/"):
             full_path = os.path.join(config.DATA_DIR, file_path)
+        elif file_path.startswith("uploads_temp/"):
+            full_path = os.path.join(config.TEMP_DIR, file_path.replace("uploads_temp/", ""))
         else:
             full_path = os.path.join(config.SHOP_DATA_DIR, file_path)
     
     if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        if file_path.startswith("uploads_temp/"):
+            raise HTTPException(status_code=404, detail="文件不存在")
         from app.data_integrity import record_missing_file
-        url = f"/api/image/{file_path}"
         pid = 0
         pname = "系统文件"
         ftype = "unknown"
         parts = file_path.split("/")
+        display_path = f"Data/{file_path}"
         if len(parts) >= 2 and parts[0] == "shop":
             try:
                 pid = int(parts[1])
@@ -451,7 +455,7 @@ async def get_image_via_api(file_path: str, request: Request):
                 elif "show_frame" in parts:
                     ftype = "thumbnail"
             except: pass
-        record_missing_file(url, pid, pname, ftype)
+        record_missing_file(display_path, pid, pname, ftype)
         raise HTTPException(status_code=404, detail="文件不存在")
     
     if not (os.path.realpath(full_path).startswith(os.path.realpath(config.UPLOAD_DIR)) or 

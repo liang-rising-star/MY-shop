@@ -266,9 +266,10 @@ async def test_email(data: dict, request: Request):
         secure = get_config("email_secure", "ssl")
         username = get_config("email_username")
         password = get_config("email_password")
+        from_name = get_config("email_from_name", "MY-Shop")
     
     if not smtp or not username or not password:
-        return {"error": "请先配置邮件设置"}
+        return {"error": "请先配置邮件设置（SMTP服务器、发件邮箱、授权码）"}
     
     try:
         import smtplib
@@ -276,7 +277,7 @@ async def test_email(data: dict, request: Request):
         from email.mime.multipart import MIMEMultipart
         
         msg = MIMEMultipart()
-        msg['From'] = username
+        msg['From'] = f"{from_name} <{username}>"
         msg['To'] = email
         msg['Subject'] = 'MY-Shop 测试邮件'
         

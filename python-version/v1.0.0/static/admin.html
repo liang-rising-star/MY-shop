@@ -859,16 +859,31 @@ input:checked + .slider:before{transform:translateX(20px)}
         </div>
         <div class="bh" @click="toggle('cfg_notify')"><h3>📧 通知渠道</h3><span class="chevron" :class="{rot:open.cfg_notify}">▶</span></div>
         <div class="bd" :class="{collapsed:!open.cfg_notify}">
+          <div style="padding:0.5rem 0;color:var(--dim);font-size:0.85rem">邮件设置</div>
           <div class="form-grid">
-            <div class="fg"><label>SMTP服务器</label><input v-model="st.email_smtp" /></div>
-            <div class="fg"><label>端口</label><input v-model.number="st.email_port" type="number" /></div>
-            <div class="fg"><label>安全方式</label><select v-model="st.email_secure"><option value="ssl">SSL</option><option value="tls">TLS</option><option value="none">无</option></select></div>
-            <div class="fg"><label>发件邮箱</label><input v-model="st.email_username" /></div>
-            <div class="fg"><label>邮箱密码</label><input v-model="st.email_password" type="password" /></div>
+            <div class="fg"><label>SMTP服务器</label><input v-model="st.email_smtp" placeholder="smtp.qq.com" /></div>
+            <div class="fg"><label>端口</label><input v-model.number="st.email_port" type="number" placeholder="465" /></div>
+            <div class="fg"><label>加密方式</label><select v-model="st.email_secure"><option value="ssl">SSL</option><option value="tls">STARTTLS</option><option value="none">无加密</option></select></div>
+            <div class="fg"><label>发件邮箱</label><input v-model="st.email_username" placeholder="your@qq.com" /></div>
+            <div class="fg"><label>授权码</label><input v-model="st.email_password" type="password" placeholder="邮箱设置中获取的授权码" /></div>
+            <div class="fg"><label>发件人名称</label><input v-model="st.email_from_name" placeholder="MY-Shop" /></div>
           </div>
-          <div style="margin-top:0.5rem"><button class="btn btn-w btn-sm" @click="testEmail"><i class="fas fa-paper-plane"></i> 测试邮件</button></div>
-          <div class="form-grid" style="margin-top:1rem">
+          <div style="margin-top:0.5rem"><button class="btn btn-w btn-sm" @click="testEmail"><i class="fas fa-paper-plane"></i> 发送测试邮件</button></div>
+          <div style="padding:0.8rem 0 0.3rem;color:var(--dim);font-size:0.85rem">短信设置</div>
+          <div class="form-grid">
             <div class="fg"><label>短信平台</label><select v-model="st.sms_platform"><option value="aliyun">阿里云</option><option value="tencent">腾讯云</option></select></div>
+          </div>
+          <div v-if="st.sms_platform==='aliyun'" class="form-grid" style="margin-top:0.5rem">
+            <div class="fg"><label>AccessKey ID</label><input v-model="st.sms_access_key_id" placeholder="LTAI5t..." /></div>
+            <div class="fg"><label>AccessKey Secret</label><input v-model="st.sms_access_key_secret" type="password" placeholder="AccessKey密钥" /></div>
+            <div class="fg"><label>签名名称</label><input v-model="st.sms_sign_name" placeholder="MY-Shop" /></div>
+            <div class="fg"><label>模板CODE</label><input v-model="st.sms_template_code" placeholder="SMS_123456" /></div>
+          </div>
+          <div v-if="st.sms_platform==='tencent'" class="form-grid" style="margin-top:0.5rem">
+            <div class="fg"><label>SID</label><input v-model="st.sms_secret_id" placeholder="SecretId" /></div>
+            <div class="fg"><label>Secret Key</label><input v-model="st.sms_secret_key" type="password" placeholder="SecretKey" /></div>
+            <div class="fg"><label>SdkAppId</label><input v-model="st.sms_sdk_app_id" placeholder="1400..." /></div>
+            <div class="fg"><label>模板ID</label><input v-model="st.sms_template_id" placeholder="123456" /></div>
           </div>
           <div style="margin-top:0.5rem"><button class="btn btn-w btn-sm" @click="testSms"><i class="fas fa-sms"></i> 测试短信</button></div>
         </div>
@@ -1448,7 +1463,7 @@ MNOP-1111-QRST-2222" style="min-height:150px;font-family:monospace;font-size:0.9
           <div style="font-weight:600;margin-bottom:4px"><span style="color:var(--primary)">商品#{{ issue.product_id }}</span> {{ issue.product_name }}</div>
           <div style="font-size:12px;color:var(--dim);word-break:break-all">
             <span :style="{color:issue.file_type==='video'?'var(--warning)':issue.file_type==='thumbnail'?'#9c27b0':'var(--text)'}">{{ issue.file_type==='image'?'图片':issue.file_type==='video'?'视频':issue.file_type==='thumbnail'?'缩略图':'访问缺失' }}</span>
-            — {{ issue.file_url }}
+            — {{ issue.file_path }}
           </div>
         </div>
         <button class="btn btn-p" style="flex-shrink:0;font-size:12px;padding:4px 12px" @click="resolveIntegrityIssue(issue.id)">已解决</button>
@@ -1898,10 +1913,10 @@ const couponRules=ref([])
 const showAddRule=ref(false)
 const newRule=ref({name:'',type:'register',coupon_id:0,give_count:1,product_id:0,category_id:0,min_order_amount:0,enabled:true})
 const edRuleId=ref(0)
-const open=ref({cfg_base:true,cfg_theme:false,cfg_seo:false,cfg_user:false,cfg_order:false,cfg_notify:false,cfg_sys:false,lt_basic:true,ev_basic:true,py_alipay:false,py_wxpay:false,py_qqpay:false,py_sqb:false,py_mapay:false,py_usdt:false})
+const open=ref({cfg_base:true,cfg_theme:false,cfg_seo:false,cfg_user:false,cfg_order:false,cfg_notify:false,cfg_sys:false,py_alipay:false,py_wxpay:false,py_mazf:false,py_yishoumi:false,py_qqpay:false,py_usdt:false})
 function toggle(k){open.value[k]=!open.value[k]}
 function toggleAccordion(key){open.value[key]=!open.value[key]}
-const st=ref({shop_name:'',title:'',notice:'',keywords:'',description:'',logo:'',background_url:'',background_mobile_url:'',service_qq:'',service_wechat:'',service_email:'',qrcode1_title:'',qrcode1_url:'',qrcode2_title:'',qrcode2_url:'',register_type:'username',forget_type:'email',session_expire:86400,admin_session_expire:30,username_min_len:3,allow_register:true,login_captcha:false,register_captcha:false,trade_captcha:false,register_verification:false,email_smtp:'',email_port:465,email_secure:'ssl',email_username:'',email_password:'',sms_platform:'aliyun',sms_access_key_id:'',sms_access_key_secret:'',sms_sign_name:'',sms_template_code:'',sms_secret_id:'',sms_secret_key:'',sms_sdk_app_id:'',sms_template_id:'',sms_dxbao_username:'',sms_dxbao_password:'',sms_dxbao_template:'',default_category:'0',commodity_recommend:false,commodity_name:'推荐',pay_wx:true,pay_alipay:true,pay_mazf:false,mazf_mch_id:'',mazf_key:'',pay_yishoumi:false,yishoumi_app_id:'',yishoumi_app_key:'',yishoumi_notify_url:'',pay_usdt:false,pay_qq:false,recharge_min:10,recharge_max:5000,recharge_welfare:false,recharge_bonus:0,points_per_yuan:1,shop_closed:false,maintenance_mode:false,closed_message:'',order_timeout:30,auto_receive_days:7,email_notify:false,sms_notify:false,upload_max_size:1024})
+const st=ref({shop_name:'',title:'',notice:'',keywords:'',description:'',logo:'',background_url:'',background_mobile_url:'',service_qq:'',service_wechat:'',service_email:'',qrcode1_title:'',qrcode1_url:'',qrcode2_title:'',qrcode2_url:'',register_type:'username',forget_type:'email',session_expire:86400,admin_session_expire:30,username_min_len:3,allow_register:true,login_captcha:false,register_captcha:false,trade_captcha:false,register_verification:false,email_smtp:'',email_port:465,email_secure:'ssl',email_username:'',email_password:'',email_from_name:'MY-Shop',sms_platform:'aliyun',sms_access_key_id:'',sms_access_key_secret:'',sms_sign_name:'',sms_template_code:'',sms_secret_id:'',sms_secret_key:'',sms_sdk_app_id:'',sms_template_id:'',sms_dxbao_username:'',sms_dxbao_password:'',sms_dxbao_template:'',default_category:'0',commodity_recommend:false,commodity_name:'推荐',pay_wx:true,pay_alipay:true,pay_mazf:false,mazf_mch_id:'',mazf_key:'',pay_yishoumi:false,yishoumi_app_id:'',yishoumi_app_key:'',yishoumi_notify_url:'',pay_usdt:false,pay_qq:false,recharge_min:10,recharge_max:5000,recharge_welfare:false,recharge_bonus:0,points_per_yuan:1,shop_closed:false,maintenance_mode:false,closed_message:'',order_timeout:30,auto_receive_days:7,email_notify:false,sms_notify:false,upload_max_size:1024})
 const lt=ref({enabled:true,show_odds:true,anti_cheat:true,price:1,free_daily:0,points_cost:0,points_threshold:0,pool:[],pity_enabled:false,pity_count:100,pity_product_id:0,pity_odds:100})
 const ev=ref({enabled:false,banner_title:'',banner_desc:'',show_progress:true,show_countdown:true})
 const pay=ref({
