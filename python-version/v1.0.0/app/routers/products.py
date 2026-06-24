@@ -23,9 +23,11 @@ def ensure_product_file_dir(pid):
     return d
 
 def _migrate_product_files(pid, data):
-    """将旧路径的文件迁移到 shop/<pid>/media/ 下"""
+    """将临时目录的文件迁移到 shop/<pid>/media/ 下，并清理临时目录"""
     get_product_dir(pid)
     updates = {}
+    temp_dirs_to_clean = set()
+    task_id = data.get("task_id", "")
 
     for field, is_video, sub_dir in [
         ("images", False, "image"),
@@ -38,14 +40,18 @@ def _migrate_product_files(pid, data):
         parts = [u.strip() for u in urls.split(",") if u.strip()]
         new_parts = []
         for url in parts:
-            if not url.startswith("/api/image/images/"):
+            if not url.startswith("/api/image/upload/"):
                 new_parts.append(url)
                 continue
             basename = os.path.basename(url)
-            if is_video:
-                dest_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", sub_dir)
-            else:
-                dest_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", sub_dir)
+            parts_from_url = url.replace("/api/image/upload/", "").split("/")
+            if len(parts_from_url) < 2:
+                new_parts.append(url)
+                continue
+            task_id = parts_from_url[0]
+            temp_dirs_to_clean.add(task_id)
+
+            dest_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", sub_dir)
             os.makedirs(dest_dir, exist_ok=True)
             if sub_dir == "video/vedio":
                 prefix = f"VID_{pid}_"
@@ -57,17 +63,9 @@ def _migrate_product_files(pid, data):
             next_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
             ext = os.path.splitext(basename)[1]
             new_name = f"{prefix}{next_id}{ext}"
-            src_candidates = [
-                os.path.join(config.UPLOAD_DIR, "images", "products", basename),
-                os.path.join(config.UPLOAD_DIR, "images", "others", basename),
-            ]
-            src = ""
-            for c in src_candidates:
-                if os.path.isfile(c):
-                    src = c
-                    break
+            src = os.path.join(config.DATA_DIR, "upload", task_id, basename)
             dst = os.path.join(dest_dir, new_name)
-            if src:
+            if os.path.isfile(src):
                 shutil.copy2(src, dst)
                 os.remove(src)
             new_url = f"/api/image/shop/{pid}/media/{sub_dir}/{new_name}"
@@ -85,6 +83,15 @@ def _migrate_product_files(pid, data):
                 for k, v in updates.items():
                     setattr(p, k, v)
                 s.commit()
+
+    for task_id in temp_dirs_to_clean:
+        task_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        if os.path.isdir(task_dir):
+            shutil.rmtree(task_dir, ignore_errors=True)
+    if task_id and task_id not in temp_dirs_to_clean:
+        task_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        if os.path.isdir(task_dir):
+            shutil.rmtree(task_dir, ignore_errors=True)
 
 def save_product_backup(pid, product_data):
     """保存商品备份到 bakup.json"""
@@ -272,9 +279,6 @@ async def update_product(pid: int, data: dict, request: Request):
 async def delete_product(pid: int, request: Request):
     await require_admin(request)
     with Session(engine) as s:
-        sold_keys = s.query(CardKey).filter(CardKey.product_id == pid, CardKey.status == "sold").count()
-        if sold_keys > 0:
-            raise HTTPException(400, f"无法删除，该商品已有 {sold_keys} 个卡密已售出")
         # 获取商品信息用于删除文件
         product = s.query(Product).filter(Product.id == pid).first()
         if product:
@@ -346,7 +350,7 @@ async def update_pool(pid: int, data: dict, request: Request):
     return {"message": "奖池已更新"}
 
 @router.post("/api/admin/upload")
-async def upload_file(request: Request, file: UploadFile = File(...), file_type: str = Form(default="image"), product_id: int = Form(default=0)):
+async def upload_file(request: Request, file: UploadFile = File(...), file_type: str = Form(default="image"), product_id: int = Form(default=0), task_id: str = Form(default="")):
     await require_admin(request)
     
     allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico', '.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'}
@@ -383,11 +387,13 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
             existing = [f for f in os.listdir(target_dir) if f.startswith(prefix)]
             next_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
             name = f"{prefix}{next_id}{ext}"
+    elif task_id:
+        target_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        os.makedirs(target_dir, exist_ok=True)
+        name = f"{uuid.uuid4().hex}{ext}"
     else:
         if file_type == "logo":
             target_dir = os.path.join(config.UPLOAD_DIR, "images", "logos")
-        elif file_type == "product_image":
-            target_dir = os.path.join(config.UPLOAD_DIR, "images", "products")
         else:
             target_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
         os.makedirs(target_dir, exist_ok=True)
@@ -402,6 +408,8 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
             rel_path = f"shop/{pid}/media/video/vedio/{name}"
         else:
             rel_path = f"shop/{pid}/media/image/{name}"
+    elif task_id:
+        rel_path = f"upload/{task_id}/{name}"
     else:
         rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
     
@@ -446,6 +454,16 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
         "relative_path": rel_path,
         "thumbnail": thumb_url
     }
+
+@router.post("/api/admin/upload/cleanup")
+async def cleanup_temp_files(request: Request, data: dict):
+    await require_admin(request)
+    task_id = data.get("task_id", "")
+    if task_id:
+        task_dir = os.path.join(config.DATA_DIR, "upload", task_id)
+        if os.path.isdir(task_dir):
+            shutil.rmtree(task_dir, ignore_errors=True)
+    return {"message": "已清理"}
 
 @router.get("/api/admin/products/{pid}/thumbnail")
 async def generate_video_thumbnail(pid: int, request: Request, video_url: str = ""):

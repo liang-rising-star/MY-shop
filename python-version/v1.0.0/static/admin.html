@@ -1631,6 +1631,7 @@ const ps=ref([]),or=ref([]),us=ref([]),cs=ref([]),ct=ref([]),ks=ref([]),da=ref({
 const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'})
 const selectedKeys=ref([])
 const showProductModal=ref(false),editingProduct=ref(null),fileInput=ref(null),mediaFileInput=ref(null),dragIdx=ref(-1),dragEl=ref(null),uploadProgress=ref(-1),videoThumbMap=ref({}),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],mediaList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
+const currentTaskId=ref('')
 const productFiles=ref([])
 const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),quickGenerateCount=ref(100)
 const refreshingStock=ref(false),stockUpdateTime=ref({}),stockPollInterval=ref(null)
@@ -1670,6 +1671,7 @@ function openProductModal(p){
     if(p.id)loadProductFiles(p.id);
   }else{
     editingProduct.value=null;
+    currentTaskId.value='task_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
     videoThumbMap.value={};
     productForm.value={
       name:'',short_description:'',description:'',content:'',
@@ -1745,6 +1747,7 @@ async function handleMediaUpload(e){
         fd.append('file',file);
         fd.append('file_type','product_image');
         if(editingProduct.value)fd.append('product_id',editingProduct.value);
+        else if(currentTaskId.value)fd.append('task_id',currentTaskId.value);
         const xhr=new XMLHttpRequest();
         xhr.open('POST','/api/admin/upload');
         const tk=token.value;
@@ -1858,8 +1861,8 @@ async function loadRecommends(){
     recommends.value=data||[];
   }catch(e){console.error(e);}
 }
-function closeProductModal(){showProductModal.value=false;editingProduct.value=null}
-function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=d.mediaList.join(',');d.video_url=vids.join(',');d.video_thumbnails=vids.map(v=>videoThumbMap.value[v]||'').join(',');const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
+function closeProductModal(){if(!editingProduct.value&&currentTaskId.value){api.rq('POST','/api/admin/upload/cleanup',{task_id:currentTaskId.value}).catch(()=>{})}showProductModal.value=false;editingProduct.value=null;currentTaskId.value='';}
+function saveProduct(){const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=d.mediaList.join(',');d.video_url=vids.join(',');d.video_thumbnails=vids.map(v=>videoThumbMap.value[v]||'').join(',');if(!editingProduct.value&&currentTaskId.value)d.task_id=currentTaskId.value;const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
 async function deleteProduct(){if(!editingProduct.value)return;if(!(await confirmAsync('确定删除此商品？此操作不可恢复！')))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
 function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'high'}
 function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'available'}

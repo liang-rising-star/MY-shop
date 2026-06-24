@@ -428,7 +428,7 @@ async def get_image_via_api(file_path: str, request: Request):
     full_path = os.path.join(config.UPLOAD_DIR, file_path)
     
     if not os.path.exists(full_path) or not os.path.isfile(full_path):
-        if file_path.startswith("shop/"):
+        if file_path.startswith("shop/") or file_path.startswith("upload/"):
             full_path = os.path.join(config.DATA_DIR, file_path)
         else:
             full_path = os.path.join(config.SHOP_DATA_DIR, file_path)
