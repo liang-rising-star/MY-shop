@@ -349,7 +349,12 @@ const timedProducts = computed(() => eventProducts.value)
           v.style.display = 'none';
           document.body.appendChild(v);
           v.onloadeddata = () => { document.body.removeChild(v); };
-          setTimeout(() => { if (v.parentNode) document.body.removeChild(v); }, 15000);
+          setTimeout(() => { if (v.parentNode) document.body.removeChild(v); }, 30000);
+          const thumb = videoThumbnails.value[url];
+          if (thumb) {
+            const img = new Image();
+            img.src = thumb;
+          }
         } else {
           const img = new Image();
           img.src = url;
