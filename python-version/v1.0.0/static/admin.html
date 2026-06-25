@@ -1126,7 +1126,7 @@ input:checked + .slider:before{transform:translateX(20px)}
       
       <div class="form-section">
         <h3><i class="fas fa-photo-video"></i> 商品展示</h3>
-        <label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">上传图片或视频（支持拖动排序，首张为主图）</label>
+        <label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">上传图片或视频（支持拖动排序，首张为主图，最多10个文件）</label>
         <div style="display:flex;flex-wrap:wrap;gap:0.5rem;min-height:176px;align-content:flex-start">
           <div v-for="(media, idx) in productForm.mediaList" :key="idx" draggable="true" @dragstart="dragMediaStart(idx,$event)" @dragover.prevent="dragMediaOver(idx,$event)" @drop.prevent="dragMediaDrop(idx,$event)" @dragend="dragMediaEnd" style="width:80px;height:80px;border-radius:6px;overflow:hidden;position:relative;border:1px solid var(--border);flex-shrink:0">
             <img v-if="!media.includes('.mp4')&&!media.includes('.webm')&&!media.includes('.mov')" :src="media" style="width:100%;height:100%;object-fit:cover;pointer-events:none" />
@@ -1136,9 +1136,9 @@ input:checked + .slider:before{transform:translateX(20px)}
             </div>
             <button @click="removeProductMedia(idx)" type="button" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
           </div>
-          <div class="image-upload-box" @click="triggerMediaUpload" style="width:80px;height:80px;flex-shrink:0">
+          <div v-if="productForm.mediaList.length<10" class="image-upload-box" @click="triggerMediaUpload" style="width:80px;height:80px;flex-shrink:0">
             <i class="fas fa-plus"></i>
-            <span style="font-size:0.65rem">媒体文件</span>
+            <span style="font-size:0.65rem">上传文件</span>
           </div>
         </div>
         <input ref="mediaFileInput" type="file" accept="image/*,video/*" multiple @change="handleMediaUpload" style="display:none" />
@@ -1755,7 +1755,11 @@ async function handleMediaUpload(e){
   const files=e.target.files;
   if(!files.length)return;
   const maxSize=(st.value.upload_max_size||1024)*1024*1024;
-  for(const file of files){
+  const remaining=10-productForm.value.mediaList.length;
+  if(remaining<=0){tst('每个商品最多上传10个媒体文件','er');return;}
+  const toUpload=Array.from(files).slice(0,remaining);
+  if(toUpload.length<files.length)tst('已限制为最多10个文件，超出部分已忽略','er');
+  for(const file of toUpload){
     if(file.size>maxSize){
       tst('文件 '+file.name+' 太大('+Math.round(file.size/1024/1024)+'MB)，最大支持'+Math.round(maxSize/1024/1024)+'MB','er');
       continue;
@@ -1882,7 +1886,7 @@ async function loadRecommends(){
   }catch(e){console.error(e);}
 }
 function closeProductModal(){if(uploadProgress.value>=0){tst('请等待文件上传完成','er');return}if(!editingProduct.value&&currentTaskId.value){api.rq('POST','/api/admin/upload/cleanup',{task_id:currentTaskId.value}).catch(()=>{})}showProductModal.value=false;editingProduct.value=null;currentTaskId.value='';}
-function saveProduct(){if(uploadProgress.value>=0){tst('请等待文件上传完成','er');return}const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=d.mediaList.join(',');d.video_url=vids.join(',');d.video_thumbnails=vids.map(v=>videoThumbMap.value[v]||'').join(',');if(!editingProduct.value&&currentTaskId.value)d.task_id=currentTaskId.value;const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'商品已更新':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
+function saveProduct(){if(uploadProgress.value>=0){tst('请等待文件上传完成','er');return}const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=d.mediaList.join(',');d.video_url=vids.join(',');d.video_thumbnails=vids.map(v=>videoThumbMap.value[v]||'').join(',');if(!editingProduct.value&&currentTaskId.value)d.task_id=currentTaskId.value;const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'修改已保存':'商品已创建','ok')}).catch(e=>tst(e.message,'er'))}
 async function deleteProduct(){if(!editingProduct.value)return;if(!(await confirmAsync('确定删除此商品？此操作不可恢复！')))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
 function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'high'}
 function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'available'}
