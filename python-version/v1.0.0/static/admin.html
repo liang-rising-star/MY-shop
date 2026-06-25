@@ -1800,7 +1800,7 @@ async function removeProductMedia(idx){
   const url=productForm.value.mediaList[idx];
   productForm.value.mediaList.splice(idx,1);
   if(url){delete videoThumbMap.value[url];}
-  if(url&&url.startsWith('/api/image/')&&editingProduct.value){
+  if(url&&url.startsWith('/api/resource/')&&editingProduct.value){
     try{await api.rq('DELETE','/api/admin/products/'+editingProduct.value+'/delete-file',{file:url})}catch(e){}
   }
 }

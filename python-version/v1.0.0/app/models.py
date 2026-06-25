@@ -244,17 +244,6 @@ class RechargeOrder(Base):
     paid_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-class Address(Base):
-    __tablename__ = "addresses"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    name = Column(String(50), nullable=False)
-    phone = Column(String(20), nullable=False)
-    region = Column(String(100), default="")
-    detail = Column(String(200), default="")
-    is_default = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-
 class RecommendProduct(Base):
     __tablename__ = "recommend_products"
     id = Column(Integer, primary_key=True)

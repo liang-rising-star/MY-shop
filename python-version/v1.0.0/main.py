@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import config
 from app.database import init_db
-from app.routers import setup, auth, products, categories, cardkeys, orders, coupons, admin, user_center, payment, levels, address, dashboard, lottery, events, bills, admin_logs
+from app.routers import setup, auth, products, categories, cardkeys, orders, coupons, admin, user_center, payment, levels, dashboard, lottery, events, bills, admin_logs
 
 mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('text/javascript', '.js')
@@ -121,7 +121,7 @@ def check_anti_crawler(request: Request, allow_empty_referer: bool = False):
 
 # ========== 注册路由（先注册API路由）==========
 
-for r in [setup, auth, products, categories, cardkeys, orders, coupons, admin, user_center, payment, levels, address, dashboard, lottery, events, bills, admin_logs]:
+for r in [setup, auth, products, categories, cardkeys, orders, coupons, admin, user_center, payment, levels, dashboard, lottery, events, bills, admin_logs]:
     app.include_router(r.router)
 
 import json as _json
@@ -420,8 +420,8 @@ async def get_background(request: Request, mobile: bool = False):
 
 # ========== 图片访问 API ==========
 
-@app.get("/api/image/{file_path:path}")
-async def get_image_via_api(file_path: str, request: Request):
+@app.get("/api/resource/{file_path:path}")
+async def get_resource(file_path: str, request: Request):
     """通过API访问图片和视频"""
     check_anti_crawler(request, allow_empty_referer=True)
     
@@ -490,6 +490,8 @@ async def get_image_via_api(file_path: str, request: Request):
     if ext in video_exts:
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        response.headers["Cache-Control"] = "public, max-age=43200"
+        response.headers["Accept-Ranges"] = "bytes"
     
     return response
 
