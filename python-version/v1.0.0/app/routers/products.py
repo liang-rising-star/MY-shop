@@ -265,6 +265,26 @@ async def update_product(pid: int, data: dict, request: Request):
     with Session(engine) as s:
         p = s.query(Product).filter(Product.id == pid).first()
         if not p: raise HTTPException(404)
+        
+        old_images = set(u.strip() for u in (p.images or '').split(',') if u.strip())
+        old_videos = set(u.strip() for u in (p.video_url or '').split(',') if u.strip())
+        old_thumbs = set(u.strip() for u in (p.video_thumbnails or '').split(',') if u.strip())
+        
+        new_images = set(u.strip() for u in (data.get('images', '') or '').split(',') if u.strip())
+        new_videos = set(u.strip() for u in (data.get('video_url', '') or '').split(',') if u.strip())
+        new_thumbs = set(u.strip() for u in (data.get('video_thumbnails', '') or '').split(',') if u.strip())
+        
+        removed = (old_images - new_images) | (old_videos - new_videos) | (old_thumbs - new_thumbs)
+        for url in removed:
+            if url.startswith("/api/resource/"):
+                rel = url.replace("/api/resource/", "")
+                for base in [config.SHOP_DATA_DIR, config.UPLOAD_DIR, config.DATA_DIR]:
+                    fp = os.path.join(base, rel)
+                    if os.path.isfile(fp):
+                        try: os.remove(fp)
+                        except OSError: pass
+                        break
+        
         dt_fields = {'discount_start','discount_end','start_at','end_at'}
         for k, v in data.items():
             if hasattr(p, k):
@@ -280,31 +300,23 @@ async def update_product(pid: int, data: dict, request: Request):
 async def delete_product(pid: int, request: Request):
     await require_admin(request)
     with Session(engine) as s:
-        # 获取商品信息用于删除文件
         product = s.query(Product).filter(Product.id == pid).first()
         if product:
-            # 删除图片/视频文件
-            import glob as globmod
-            if product.images:
-                for img in product.images.split(","):
-                    img = img.strip()
-                    if img and img.startswith("/api/resource/"):
-                        rel = img.replace("/api/resource/", "")
-                        for base in [config.UPLOAD_DIR, config.SHOP_DATA_DIR, config.DATA_DIR]:
-                            fp = os.path.join(base, rel)
-                            if os.path.exists(fp):
-                                try: os.remove(fp)
-                                except: pass
-                                break
-            if product.video_url and product.video_url.startswith("/api/resource/"):
-                rel = product.video_url.replace("/api/resource/", "")
-                for base in [config.UPLOAD_DIR, config.SHOP_DATA_DIR, config.DATA_DIR]:
+            all_urls = set()
+            for field in ['images', 'video_url', 'video_thumbnails']:
+                val = getattr(product, field, '') or ''
+                for u in val.split(','):
+                    u = u.strip()
+                    if u and u.startswith("/api/resource/"):
+                        all_urls.add(u)
+            for url in all_urls:
+                rel = url.replace("/api/resource/", "")
+                for base in [config.SHOP_DATA_DIR, config.UPLOAD_DIR, config.DATA_DIR]:
                     fp = os.path.join(base, rel)
-                    if os.path.exists(fp):
+                    if os.path.isfile(fp):
                         try: os.remove(fp)
-                        except: pass
+                        except OSError: pass
                         break
-            # 删除商品文件
             files = s.query(ProductFile).filter(ProductFile.product_id == pid).all()
             for f in files:
                 if f.file_path and os.path.exists(f.file_path):
