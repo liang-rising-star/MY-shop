@@ -7,6 +7,8 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>MY-Shop - 异次元商店</title>
+  <meta name="keywords" :content="config.keywords || ''" />
+  <meta name="description" :content="config.description || ''" />
   <script>
   window._initialTheme = 'cyberpunk';
   (function() {
@@ -38,6 +40,18 @@
 <body>
   <div id="app">
     <div id="bg-image" :style="{ backgroundImage: config.background_url ? `url(${config.background_url})` : 'none' }"></div>
+    <div id="bg-image-mobile" :style="config.background_mobile_url ? { backgroundImage: `url(${config.background_mobile_url})` } : {}"></div>
+
+    <!-- 商店关闭/维护模式 -->
+    <div v-if="config.shop_closed || config.maintenance_mode" class="shop-closed-overlay">
+      <div class="shop-closed-box">
+        <h2 v-if="config.shop_closed">店铺已关闭</h2>
+        <h2 v-if="config.maintenance_mode && !config.shop_closed">系统维护中</h2>
+        <p v-if="config.closed_message">{{ config.closed_message }}</p>
+        <p v-else-if="config.shop_closed">店铺暂时关闭，请稍后再来</p>
+        <p v-else>系统正在维护中，请稍后再来</p>
+      </div>
+    </div>
     <canvas id="particle-canvas"></canvas>
 
     <!-- Setup -->
@@ -88,6 +102,9 @@
         <button class="menu-toggle" @click="menuOpen=!menuOpen"><span></span><span></span><span></span></button>
       </div>
     </nav>
+    <div v-if="config.notice && !setupRequired" class="notice-bar">
+      <i class="fas fa-bullhorn" style="margin-right:0.5rem"></i>{{ config.notice }}
+    </div>
 
     <main v-show="!setupRequired">
       <transition name="page-fade" mode="out-in">
@@ -288,6 +305,13 @@
                 <div class="detail-meta">
                   <span class="tag" :class="detail.product.type" v-if="detail.product.type!=='normal'">{{detail.product.type==='blindbox'?'🎁 盲盒':'⏰ 限时抢购'}}</span>
                   <span class="tag timed-left" v-if="detail.product.type==='timed' && detail.available===false">{{detail.msg}}</span>
+                  <span class="tag" style="background:rgba(255,68,68,0.15);color:#ff4444" v-if="detail.product.is_hot">🔥 热卖</span>
+                  <span class="tag" style="background:rgba(0,255,136,0.15);color:#00ff88" v-if="detail.product.is_new">✨ 新品</span>
+                  <span class="tag" style="background:rgba(255,170,0,0.15);color:#ffaa00" v-if="detail.product.is_seckill">⚡ 秒杀</span>
+                  <span class="tag" style="background:rgba(0,240,255,0.15);color:var(--primary)" v-if="detail.product.is_featured">⭐ 推荐</span>
+                </div>
+                <div class="detail-tags" v-if="detail.product.tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+                  <span v-for="t in detail.product.tags.split(',')" :key="t" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:var(--bg3);color:var(--dim);border:1px solid var(--border)">{{ t.trim() }}</span>
                 </div>
                 <div class="detail-price-box">
                   <div class="detail-price" v-if="detail.product.is_discount_active">
@@ -298,6 +322,18 @@
                   <div class="detail-stock">库存 {{ detail.card_key_count }} · 已售 {{ detail.product.total_sold }}</div>
                 </div>
                 <div class="detail-desc" v-if="detail.product.description">{{ detail.product.description }}</div>
+                <div v-if="detail.product.content" class="detail-content" style="margin-top:1rem;padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+                  <h4 style="font-size:0.85rem;color:var(--primary);margin-bottom:0.5rem">商品详情</h4>
+                  <div v-html="detail.product.content" style="font-size:0.85rem;color:var(--text);line-height:1.6;word-break:break-word"></div>
+                </div>
+                <div v-if="detail.product.buy_notice" class="detail-notice" style="margin-top:1rem;padding:1rem;background:rgba(255,170,0,0.05);border-radius:8px;border:1px solid rgba(255,170,0,0.15)">
+                  <h4 style="font-size:0.85rem;color:var(--warning);margin-bottom:0.5rem"><i class="fas fa-exclamation-triangle"></i> 购买须知</h4>
+                  <p style="font-size:0.82rem;color:var(--text);line-height:1.6;white-space:pre-wrap">{{ detail.product.buy_notice }}</p>
+                </div>
+                <div v-if="detail.product.after_sale_notice" class="detail-after-sale" style="margin-top:1rem;padding:1rem;background:rgba(0,240,255,0.05);border-radius:8px;border:1px solid rgba(0,240,255,0.15)">
+                  <h4 style="font-size:0.85rem;color:var(--primary);margin-bottom:0.5rem"><i class="fas fa-shield-alt"></i> 售后说明</h4>
+                  <p style="font-size:0.82rem;color:var(--text);line-height:1.6;white-space:pre-wrap">{{ detail.product.after_sale_notice }}</p>
+                </div>
                 <div class="pool-list" v-if="detail.pool?.length">
                   <h4>奖池配置</h4>
                   <div v-for="e in detail.pool" :key="e.id" class="pool-entry">
@@ -309,10 +345,12 @@
                     <span class="detail-qty-label">数量</span>
                     <div class="qty-control">
                       <button class="qty-btn" @click="buyQty = Math.max(1, buyQty - 1)" :disabled="buyQty <= 1">−</button>
-                      <input v-model.number="buyQty" type="number" min="1" :max="detail.card_key_count || 1000" class="qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= (detail.card_key_count || 1000)) ? buyQty : 1" />
-                      <button class="qty-btn" @click="buyQty = Math.min(detail.card_key_count || 1000, buyQty + 1)" :disabled="buyQty >= (detail.card_key_count || 1000)">+</button>
+                      <input v-model.number="buyQty" type="number" min="1" :max="getMaxBuyQty()" class="qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= getMaxBuyQty()) ? buyQty : 1" />
+                      <button class="qty-btn" @click="buyQty = Math.min(getMaxBuyQty(), buyQty + 1)" :disabled="buyQty >= getMaxBuyQty()">+</button>
                     </div>
                   </div>
+                  <p v-if="detail.product.per_user_limit > 0" style="font-size:0.75rem;color:var(--dim);margin-top:4px">每人限购 {{ detail.product.per_user_limit }} 件</p>
+                  <p v-if="detail.product.max_buy_limit > 0 && detail.product.max_buy_limit < detail.card_key_count" style="font-size:0.75rem;color:var(--dim);margin-top:2px">全场限购 {{ detail.product.max_buy_limit }} 件</p>
                   <button class="btn-glow detail-buy-btn" @click="checkout(detail.product)" :disabled="!detail.available || detail.card_key_count<=0">
                     <i class="fas fa-shopping-cart"></i> 立即购买
                   </button>
@@ -323,7 +361,7 @@
                     <code>{{ k.key }}</code><button class="btn-copy" @click="copy(k.key)">复制</button>
                   </div>
                 </div>
-                <div class="reviews-section" v-if="reviews.length">
+                <div class="reviews-section" v-if="detail.product.allow_comments !== false && reviews.length">
                   <h4>评价</h4>
                   <div v-for="r in reviews" :key="r.ID" class="review-item">
                     <span class="stars">{{ '⭐'.repeat(r.Rating) }}</span>
@@ -653,7 +691,8 @@
                 </div>
                 <p v-if="authErr" class="auth-error">{{ authErr }}</p>
                 <button type="submit" class="btn-glow" style="width:100%">{{ isReg ? '注册' : '登录' }}</button>
-                <a href="#" class="auth-toggle" @click.prevent="isReg=!isReg">{{ isReg ? '已有账号？去登录' : '没有账号？去注册' }}</a>
+                <a v-if="config.allow_register !== false" href="#" class="auth-toggle" @click.prevent="isReg=!isReg">{{ isReg ? '已有账号？去登录' : '没有账号？去注册' }}</a>
+                <p v-if="config.allow_register === false && !isReg" style="text-align:center;color:var(--text-dim);font-size:0.85rem;margin-top:0.5rem">暂未开放注册</p>
               </form>
             </div>
           </div>

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.database import engine
 from app.models import User, AppSetting
 from app.auth import require_admin
+from app.config import config
+import os, uuid
 
 router = APIRouter()
 
@@ -339,3 +341,48 @@ async def save_event(data: dict, request: Request):
             else: s.add(AppSetting(key=key, value=val))
         s.commit()
     return {"message": "活动设置已保存"}
+
+SYSTEM_IMAGE_MAP = {
+    "logo": os.path.join(config.DATA_DIR, "system", "logo"),
+    "background_pc": os.path.join(config.DATA_DIR, "system", "background"),
+    "background_mobile": os.path.join(config.DATA_DIR, "system", "background"),
+    "qrcode1": os.path.join(config.DATA_DIR, "system", "Customer"),
+    "qrcode2": os.path.join(config.DATA_DIR, "system", "Customer"),
+}
+SYSTEM_IMAGE_NAMES = {
+    "logo": "logo",
+    "background_pc": "PC",
+    "background_mobile": "Mobile",
+    "qrcode1": "QR_Code_1",
+    "qrcode2": "QR_Code_2",
+}
+
+@router.post("/api/admin/upload/system-image")
+async def upload_system_image(request: Request, file: UploadFile = File(...), image_type: str = Form(...)):
+    await require_admin(request)
+    if image_type not in SYSTEM_IMAGE_MAP:
+        raise HTTPException(400, "无效的图片类型")
+    allowed = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'}
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed:
+        raise HTTPException(400, f"不支持的文件类型: {ext}，仅支持图片")
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(400, "文件大小超过10MB限制")
+    target_dir = SYSTEM_IMAGE_MAP[image_type]
+    os.makedirs(target_dir, exist_ok=True)
+    name = f"{SYSTEM_IMAGE_NAMES[image_type]}{ext}"
+    path = os.path.join(target_dir, name)
+    with open(path, "wb") as f:
+        f.write(content)
+    rel = os.path.relpath(path, config.DATA_DIR).replace("\\", "/")
+    url = f"/api/resource/{rel}"
+    setting_key = f"system_image_{image_type}"
+    with Session(engine) as s:
+        existing = s.query(AppSetting).filter(AppSetting.key == setting_key).first()
+        if existing:
+            existing.value = url
+        else:
+            s.add(AppSetting(key=setting_key, value=url))
+        s.commit()
+    return {"url": url, "message": "上传成功"}

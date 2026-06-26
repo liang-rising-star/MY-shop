@@ -693,6 +693,7 @@ input:checked + .slider:before{transform:translateX(20px)}
             <div class="fg"><label>邀请人奖励(积分)</label><input v-model.number="invSettings.reward_inviter" type="number" placeholder="0" /></div>
             <div class="fg"><label>赠送优惠券ID</label><input v-model.number="invSettings.reward_coupon" type="number" placeholder="0" /></div>
             <div class="fg"><label>优惠券数量</label><input v-model.number="invSettings.reward_coupon_count" type="number" min="1" placeholder="1" /></div>
+            <div class="fg"><label>佣金比例(%)</label><input v-model.number="invSettings.commission_rate" type="number" min="0" max="100" step="0.1" placeholder="0表示无佣金" /></div>
           </div>
           <div style="margin-top:1rem"><button class="btn btn-p" @click="saveInvSettings"><i class="fas fa-save"></i> 保存设置</button></div>
         </div>
@@ -734,6 +735,14 @@ input:checked + .slider:before{transform:translateX(20px)}
             <div class="fg"><label>每日免费次数</label><input v-model.number="lt.free_daily" type="number" min="0" /></div>
             <div class="fg"><label>积分兑换消耗</label><input v-model.number="lt.points_cost" type="number" min="0" /></div>
             <div class="fg"><label>积分兑换门槛</label><input v-model.number="lt.points_threshold" type="number" min="0" /></div>
+          </div>
+          <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
+            <div class="fr"><div class="sw"><label>启用保底机制</label><div class="toggle" :class="{on:lt.pity_enabled}" @click="lt.pity_enabled=!lt.pity_enabled"></div></div></div>
+            <div class="form-grid" v-if="lt.pity_enabled" style="margin-top:0.5rem">
+              <div class="fg"><label>保底次数(每N次必中)</label><input v-model.number="lt.pity_count" type="number" min="1" placeholder="100" /></div>
+              <div class="fg"><label>保底奖品ID(0为随机)</label><input v-model.number="lt.pity_product_id" type="number" min="0" placeholder="0" /></div>
+              <div class="fg"><label>保底概率(%)</label><input v-model.number="lt.pity_odds" type="number" min="0" max="100" placeholder="100" /></div>
+            </div>
           </div>
           <div style="margin-top:1rem"><button class="btn btn-p" @click="saveLt"><i class="fas fa-save"></i> 保存设置</button></div>
         </div>
@@ -781,6 +790,7 @@ input:checked + .slider:before{transform:translateX(20px)}
             <div class="sw"><label>启用USDT</label><div class="toggle" :class="{on:pay.usdt.enabled}" @click="pay.usdt.enabled=!pay.usdt.enabled"></div></div>
             <div class="fr" v-if="pay.usdt.enabled">
               <div class="fg"><label>收款钱包地址</label><input v-model="pay.usdt.address" placeholder="TRC20钱包地址" /></div>
+              <div class="fg"><label>收款链类型</label><select v-model="pay.usdt.network"><option value="trc20">TRC20</option><option value="erc20">ERC20</option><option value="bep20">BEP20</option></select></div>
             </div>
           </div>
           <div class="bh" @click="toggle('py_qqpay')"><h3><i class="fab fa-qq" style="color:#12b7f5"></i> QQ钱包</h3><span class="chevron" :class="{rot:open.py_qqpay}">▶</span></div>
@@ -816,12 +826,72 @@ input:checked + .slider:before{transform:translateX(20px)}
             <div class="fg"><label>店铺公告</label><input v-model="st.notice" /></div>
           </div>
         </div>
+        <div class="bh" @click="toggle('cfg_service')"><h3>📞 客服信息</h3><span class="chevron" :class="{rot:open.cfg_service}">▶</span></div>
+        <div class="bd" :class="{collapsed:!open.cfg_service}">
+          <div class="form-grid">
+            <div class="fg"><label>客服QQ</label><input v-model="st.service_qq" placeholder="QQ号码" /></div>
+            <div class="fg"><label>客服微信</label><input v-model="st.service_wechat" placeholder="微信号" /></div>
+            <div class="fg"><label>客服邮箱</label><input v-model="st.service_email" placeholder="support@example.com" /></div>
+          </div>
+          <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">二维码1</label>
+            <div class="form-grid">
+              <div class="fg"><label>二维码标题</label><input v-model="st.qrcode1_title" placeholder="如: 微信客服" /></div>
+              <div class="fg">
+                <label>二维码图片</label>
+                <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" @click="$refs.qrcode1FileInput.click()" @mouseenter="$event.currentTarget.style.borderColor='var(--primary)'" @mouseleave="$event.currentTarget.style.borderColor='var(--border)'">
+                  <img v-if="st.qrcode1_url" :src="st.qrcode1_url" style="width:100%;height:100%;object-fit:contain;border-radius:4px" @error="st.qrcode1_url=''" />
+                  <template v-else><i class="fas fa-qrcode" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.75rem;color:var(--dim)">点击上传</span></template>
+                </div>
+                <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 300x300px 正方形</p>
+                <input ref="qrcode1FileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'qrcode1')" />
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">二维码2</label>
+            <div class="form-grid">
+              <div class="fg"><label>二维码标题</label><input v-model="st.qrcode2_title" placeholder="如: 微信公众号" /></div>
+              <div class="fg">
+                <label>二维码图片</label>
+                <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" @click="$refs.qrcode2FileInput.click()" @mouseenter="$event.currentTarget.style.borderColor='var(--primary)'" @mouseleave="$event.currentTarget.style.borderColor='var(--border)'">
+                  <img v-if="st.qrcode2_url" :src="st.qrcode2_url" style="width:100%;height:100%;object-fit:contain;border-radius:4px" @error="st.qrcode2_url=''" />
+                  <template v-else><i class="fas fa-qrcode" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.75rem;color:var(--dim)">点击上传</span></template>
+                </div>
+                <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 300x300px 正方形</p>
+                <input ref="qrcode2FileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'qrcode2')" />
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="bh" @click="toggle('cfg_theme')"><h3>🎨 外观与主题</h3><span class="chevron" :class="{rot:open.cfg_theme}">▶</span></div>
         <div class="bd" :class="{collapsed:!open.cfg_theme}">
           <div class="form-grid">
-            <div class="fg"><label>Logo URL</label><input v-model="st.logo" /></div>
-            <div class="fg"><label>PC背景图URL</label><input v-model="st.background_url" /></div>
-            <div class="fg"><label>手机背景图URL</label><input v-model="st.background_mobile_url" /></div>
+            <div class="fg">
+              <label>店铺Logo</label>
+              <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px" @click="$refs.logoFileInput.click()" @mouseenter="$event.currentTarget.style.borderColor='var(--primary)'" @mouseleave="$event.currentTarget.style.borderColor='var(--border)'">
+                <img v-if="st.logo" :src="st.logo" style="width:100%;height:100%;object-fit:contain;border-radius:4px" @error="st.logo=''" />
+                <template v-else><i class="fas fa-cloud-upload-alt" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.8rem;color:var(--dim)">点击上传Logo</span></template>
+              </div>
+              <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 200x200px，PNG透明背景</p>
+              <input ref="logoFileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'logo')" />
+            </div>
+            <div class="fg">
+              <label>PC背景图</label>
+              <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px" @click="$refs.bgPcFileInput.click()" @mouseenter="$event.currentTarget.style.borderColor='var(--primary)'" @mouseleave="$event.currentTarget.style.borderColor='var(--border)'">
+                <img v-if="st.background_url" :src="st.background_url" style="width:100%;height:100%;object-fit:contain;border-radius:4px" @error="st.background_url=''" />
+                <template v-else><i class="fas fa-cloud-upload-alt" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.8rem;color:var(--dim)">点击上传PC背景</span></template>
+              </div>
+              <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 1920x1080px</p>
+              <input ref="bgPcFileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'background_pc')" />
+            </div>
+            <div class="fg">
+              <label>手机背景图</label>
+              <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px" @click="$refs.bgMobileFileInput.click()" @mouseenter="$event.currentTarget.style.borderColor='var(--primary)'" @mouseleave="$event.currentTarget.style.borderColor='var(--border)'">
+                <img v-if="st.background_mobile_url" :src="st.background_mobile_url" style="width:100%;height:100%;object-fit:contain;border-radius:4px" @error="st.background_mobile_url=''" />
+                <template v-else><i class="fas fa-cloud-upload-alt" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.8rem;color:var(--dim)">点击上传手机背景</span></template>
+              </div>
+              <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 750x1334px</p>
+              <input ref="bgMobileFileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'background_mobile')" />
+            </div>
           </div>
           <div class="theme-selector" style="margin-top:1rem">
             <button class="theme-option" :class="{active:currentTheme==='cyberpunk'}" @click="changeTheme('cyberpunk')"><span class="theme-preview theme-cyberpunk"></span> 赛博朋克</button>
@@ -847,6 +917,13 @@ input:checked + .slider:before{transform:translateX(20px)}
           <div class="form-grid" style="margin-top:1rem">
             <div class="fg"><label>登录会话时长(秒)</label><input v-model.number="st.session_expire" type="number" /></div>
             <div class="fg"><label>管理后台会话(分钟)</label><input v-model.number="st.admin_session_expire" type="number" /></div>
+            <div class="fg"><label>用户名最小长度</label><input v-model.number="st.username_min_len" type="number" min="1" max="20" /></div>
+            <div class="fg"><label>注册方式</label><select v-model="st.register_type"><option value="username">用户名注册</option><option value="email">邮箱注册</option><option value="phone">手机注册</option></select></div>
+            <div class="fg"><label>找回密码方式</label><select v-model="st.forget_type"><option value="email">邮箱找回</option><option value="phone">手机找回</option></select></div>
+          </div>
+          <div class="fr" style="margin-top:1rem">
+            <div class="sw"><label>注册验证码</label><div class="toggle" :class="{on:st.register_captcha}" @click="st.register_captcha=!st.register_captcha"></div></div>
+            <div class="sw"><label>注册审核</label><div class="toggle" :class="{on:st.register_verification}" @click="st.register_verification=!st.register_verification"></div></div>
           </div>
         </div>
         <div class="bh" @click="toggle('cfg_order')"><h3>📦 订单与交易</h3><span class="chevron" :class="{rot:open.cfg_order}">▶</span></div>
@@ -886,6 +963,10 @@ input:checked + .slider:before{transform:translateX(20px)}
             <div class="fg"><label>模板ID</label><input v-model="st.sms_template_id" placeholder="123456" /></div>
           </div>
           <div style="margin-top:0.5rem"><button class="btn btn-w btn-sm" @click="testSms"><i class="fas fa-sms"></i> 测试短信</button></div>
+          <div class="fr" style="margin-top:1rem">
+            <div class="sw"><label>邮件通知</label><div class="toggle" :class="{on:st.email_notify}" @click="st.email_notify=!st.email_notify"></div></div>
+            <div class="sw"><label>短信通知</label><div class="toggle" :class="{on:st.sms_notify}" @click="st.sms_notify=!st.sms_notify"></div></div>
+          </div>
         </div>
         <div class="bh" @click="toggle('cfg_sys')"><h3>⚙️ 系统维护</h3><span class="chevron" :class="{rot:open.cfg_sys}">▶</span></div>
         <div class="bd" :class="{collapsed:!open.cfg_sys}">
@@ -1909,7 +1990,7 @@ const coTab=ref('promo')
 const newPromo=ref({code:'',type:'percentage',value:0,min_amount:0,max_uses:0,expires_at:'',remark:''})
 const newRedeem=ref({code:'',coupon_id:0,give_count:1,max_uses:0,expires_at:'',remark:''})
 const inviteRecords=ref([])
-const invSettings=ref({reward_new_user:0,reward_inviter:0,reward_coupon:0,reward_coupon_count:1})
+const invSettings=ref({reward_new_user:0,reward_inviter:0,reward_coupon:0,reward_coupon_count:1,commission_rate:0})
 const integrityIssues=ref([])
 const showIntegrityPopup=ref(false)
 const integrityCount=ref(0)
@@ -1926,7 +2007,7 @@ const ev=ref({enabled:false,banner_title:'',banner_desc:'',show_progress:true,sh
 const pay=ref({
   alipay:{enabled:true,app_id:'',private_key:''},
   wxpay:{enabled:true,mch_id:'',key:''},
-  usdt:{enabled:false,address:''},
+  usdt:{enabled:false,address:'',network:'trc20'},
   shouqianba:{enabled:false,mch_id:'',terminal_id:'',key:''},
   yishoumi:{enabled:false,app_id:'',app_key:'',notify_url:'',return_url:''},
   maPay:{enabled:false,mch_id:'',key:''},
@@ -2160,11 +2241,11 @@ async function loadPromoCodes(){try{const d=await api.rq('GET','/api/admin/promo
 async function createPromoCode(){const d=newPromo.value;if(!d.value){tst('请填写优惠值','er');return}const code=d.code||generatePromoCode();await api.rq('POST','/api/admin/promo-codes',{code,type:d.type,value:d.value,min_amount:d.min_amount,max_uses:d.max_uses,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null,remark:d.remark});newPromo.value={code:'',type:'percentage',value:0,min_amount:0,max_uses:0,expires_at:'',remark:''};loadPromoCodes();tst('优惠码已创建','ok')}
 async function createRedeemCode(){const d=newRedeem.value;if(!d.coupon_id){tst('请选择关联优惠券','er');return}const code=d.code||generatePromoCode();await api.rq('POST','/api/admin/promo-codes',{code,coupon_id:d.coupon_id,give_count:d.give_count,max_uses:d.max_uses,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null,remark:d.remark});newRedeem.value={code:'',coupon_id:0,give_count:1,max_uses:0,expires_at:'',remark:''};loadPromoCodes();tst('兑换码已创建','ok')}
 async function dlCo(id){if(!(await confirmAsync('确定删除？')))return;api.rq('DELETE','/api/admin/promo-codes/'+id).then(()=>{loadPromoCodes();tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
-async function loadInviteSettings(){try{const d=await api.rq('GET','/api/admin/invites/settings');if(d.settings)invSettings.value={...invSettings.value,...d.settings}}catch(e){console.error(e)}}
+async function loadInviteSettings(){try{const d=await api.rq('GET','/api/admin/invites/settings');if(d.settings)invSettings.value={...invSettings.value,...d.settings};const c=await api.rq('GET','/api/admin/config');if(c.config&&c.config.commission_rate!==undefined)invSettings.value.commission_rate=c.config.commission_rate}catch(e){console.error(e)}}
 async function loadInviteRecords(){try{const d=await api.rq('GET','/api/admin/invites/records');inviteRecords.value=d||[]}catch(e){console.error(e)}}
 async function checkIntegrity(){try{const issues=await api.rq('GET','/api/admin/data-integrity/issues');integrityIssues.value=issues.issues||[];integrityCount.value=issues.count||0;if(integrityCount.value>0){showIntegrityPopup.value=true;}}catch(e){}}
 async function resolveIntegrityIssue(issueId){try{const r=await api.rq('POST','/api/admin/data-integrity/resolve/'+issueId);integrityIssues.value=integrityIssues.value.filter(i=>i.id!==issueId);integrityCount.value=r.remaining||0;if(integrityCount.value===0){showIntegrityPopup.value=false;tst('所有问题已解决','ok');}}catch(e){tst('操作失败','er')}}
-async function saveInvSettings(){await api.rq('POST','/api/admin/invites/settings',invSettings.value);tst('设置已保存','ok')}
+async function saveInvSettings(){await api.rq('POST','/api/admin/invites/settings',invSettings.value);await api.rq('POST','/api/admin/config',{commission_rate:invSettings.value.commission_rate||0});tst('设置已保存','ok')}
 async function loadCouponRules(){try{const d=await api.rq('GET','/api/admin/coupon-rules');couponRules.value=d||[]}catch(e){console.error(e)}}
 async function createRule(){const d=newRule.value;if(!d.name||!d.coupon_id){tst('请填写完整信息','er');return}try{await api.rq('POST','/api/admin/coupon-rules',d);newRule.value={name:'',type:'register',coupon_id:0,give_count:1,product_id:0,category_id:0,min_order_amount:0,enabled:true};showAddRule.value=false;loadCouponRules();tst('规则已创建','ok')}catch(e){tst('创建失败: '+e.message,'er')}}
 async function updateRule(rule){try{await api.rq('PUT','/api/admin/coupon-rules/'+rule.id,{name:rule.name,type:rule.type,coupon_id:rule.coupon_id,give_count:rule.give_count,product_id:rule.product_id,category_id:rule.category_id,min_order_amount:rule.min_order_amount,enabled:rule.enabled});tst('规则已更新','ok')}catch(e){tst('更新失败: '+e.message,'er')}}
@@ -2172,6 +2253,24 @@ async function deleteRule(id){if(!(await confirmAsync('确定删除此规则？'
 async function mkCo(){const d=cpc.value;if(!d.coupon_id){tst('请选择关联优惠券','er');return}const code=d.code||generatePromoCode();await api.rq('POST','/api/admin/promo-codes',{code,coupon_id:d.coupon_id,remark:d.remark,max_uses:d.max_uses,expires_at:d.expires_at?new Date(d.expires_at).toISOString():null});cpc.value={code:'',coupon_id:0,remark:'',max_uses:0,expires_at:''};loadPromoCodes();tst('优惠码已创建','ok')}
 async function mkCt(){if(!cf.value.name){tst('填写名称','er');return}await api.rq('POST','/api/admin/categories',cf.value);cf.value={name:'',sort_order:0};api.rq('GET','/api/categories').then(d=>ct.value=d);tst('已创建','ok')}
 async function dlCt(id){if(!(await confirmAsync('确定删除？')))return;api.rq('DELETE','/api/categories/'+id).then(()=>{api.rq('GET','/api/categories').then(d=>ct.value=d);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
+async function uploadSystemImage(event, imageType) {
+  const file = event.target.files[0]
+  if (!file) return
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('image_type', imageType)
+  try {
+    const h = {}
+    if (token.value) h['Authorization'] = 'Bearer ' + token.value
+    const r = await fetch('/api/admin/upload/system-image', { method: 'POST', headers: h, body: fd })
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.detail || '上传失败')
+    const keyMap = { logo: 'logo', background_pc: 'background_url', background_mobile: 'background_mobile_url', qrcode1: 'qrcode1_url', qrcode2: 'qrcode2_url' }
+    st.value[keyMap[imageType]] = d.url
+    tst('上传成功', 'ok')
+  } catch (e) { tst(e.message, 'er') }
+  event.target.value = ''
+}
 async function saveSt(){await api.rq('POST','/api/admin/config',st.value);await api.rq('POST','/api/admin/logs/retention',{retention_days:logRetention.value});tst('设置已保存','ok')}
 async function testEmail(){const email=prompt('请输入测试邮箱地址：');if(!email)return;try{await api.rq('POST','/api/admin/config/email/test',{email});tst('测试邮件发送成功','ok')}catch(e){tst('发送失败: '+e.message,'er')}}
 async function testSms(){const phone=prompt('请输入测试手机号：');if(!phone)return;try{await api.rq('POST','/api/admin/config/sms/test',{phone});tst('测试短信发送成功','ok')}catch(e){tst('发送失败: '+e.message,'er')}}
@@ -2260,7 +2359,7 @@ async function saveLogRetention(){
 async function manualCleanupLogs(){
   try{await api.rq('POST','/api/admin/logs/cleanup');tst('已清理过期日志','ok');loadLogs()}catch(e){tst(e.message,'er')}
 }
-return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,integrityIssues,showIntegrityPopup,integrityCount,checkIntegrity,resolveIntegrityIssue,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
+return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,integrityIssues,showIntegrityPopup,integrityCount,checkIntegrity,resolveIntegrityIssue,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,uploadSystemImage,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
 }
 }).mount('#app')
 // 后备方案已移至独立script标签

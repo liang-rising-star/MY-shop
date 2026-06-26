@@ -93,6 +93,73 @@ body {
   transition: opacity 0.3s;
 }
 
+#bg-image-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  #bg-image { display: none !important; }
+  #bg-image-mobile {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: -1;
+    pointer-events: none;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.3;
+    transition: opacity 0.3s;
+  }
+}
+
+/* 公告栏 */
+.notice-bar {
+  background: linear-gradient(90deg, rgba(0,240,255,0.1), rgba(255,0,170,0.1));
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--neon-cyan);
+  animation: noticeScroll 20s linear infinite;
+  white-space: nowrap;
+  overflow: hidden;
+}
+@keyframes noticeScroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* 商店关闭页面 */
+.shop-closed-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+.shop-closed-box {
+  text-align: center;
+  padding: 3rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  max-width: 500px;
+}
+.shop-closed-box h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--neon-red);
+}
+.shop-closed-box p {
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
 #particle-canvas {
   position: fixed;
   top: 0; left: 0;

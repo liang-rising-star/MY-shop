@@ -74,7 +74,13 @@ const app = createApp({
       qrcode1_title: '',
       qrcode1_url: '',
       qrcode2_title: '',
-      qrcode2_url: ''
+      qrcode2_url: '',
+      notice: '',
+      keywords: '',
+      description: '',
+      shop_closed: false,
+      maintenance_mode: false,
+      closed_message: ''
     })
     const showService = ref(false)
     const editingProduct = ref(null)
@@ -224,13 +230,29 @@ const timedProducts = computed(() => eventProducts.value)
       try {
         const d = await API.request('GET', '/api/site/settings')
         if (d.settings) {
-          config.value = { ...config.value, ...d.settings }
+          const flat = {}
+          for (const [k, v] of Object.entries(d.settings)) {
+            const key = k.startsWith('config_') ? k.slice(7) : k
+            flat[key] = v
+          }
+          config.value = { ...config.value, ...flat }
           // 更新页面标题
-          if (d.settings.title) {
-            document.title = `${d.settings.shop_name || 'MY-Shop'} - ${d.settings.title}`
+          if (flat.title) {
+            document.title = `${flat.shop_name || 'MY-Shop'} - ${flat.title}`
           }
         }
       } catch(e) {}
+    }
+
+    function getMaxBuyQty() {
+      if (!detail.value) return 1000
+      const stock = detail.value.card_key_count || 1000
+      const perUserLimit = detail.value.product?.per_user_limit || 0
+      const maxBuyLimit = detail.value.product?.max_buy_limit || 0
+      let max = stock
+      if (perUserLimit > 0) max = Math.min(max, perUserLimit)
+      if (maxBuyLimit > 0) max = Math.min(max, maxBuyLimit)
+      return Math.max(1, max)
     }
 
     function countdown(timeStr) {
@@ -833,7 +855,7 @@ const timedProducts = computed(() => eventProducts.value)
       loadUC, loadUCOrders, updateProfile, changePw, doRecharge, rechargeAmt, rechargePayMethod, availablePayMethods, loadPayMethods, doUpgrade, showUpgrade, upgradeAmt,
       levelRequirements, nextLevel,
       users, adminMenu, showCouponForm, showCatForm, settings, saveSettings,
-      navigate, initSetup, toggleAdminView,
+      navigate, initSetup, toggleAdminView, getMaxBuyQty,
       toast, copy, statusText, formatDate,
       loadProducts, loadCategories, loadOrders, loadAllOrders, loadCoupons, loadConfig,
       loadProfile, loadMyCoupons, loadCardKeys, loadReviews, loadUsers, loadCaptcha, loadEvents, loadRechargeRecords, loadPayMethods,

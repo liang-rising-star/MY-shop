@@ -10,11 +10,11 @@ router = APIRouter()
 def get_payment_config():
     """从数据库获取支付配置"""
     with Session(engine) as s:
-        settings = {}
         for key in [
             "pay_wx", "pay_alipay", "pay_mazf", "pay_yishoumi", 
             "pay_usdt", "pay_qq", "mazf_mch_id", "mazf_key", 
-            "yishoumi_app_id", "yishoumi_app_key", "yishoumi_notify_url"
+            "yishoumi_app_id", "yishoumi_app_key", "yishoumi_notify_url",
+            "usdt_address", "usdt_network"
         ]:
             row = s.query(AppSetting).filter(AppSetting.key == key).first()
             settings[key] = row.value if row else ""
@@ -114,7 +114,7 @@ async def get_payment_settings(request: Request):
                 "app_key": config.get("yishoumi_app_key", ""),
                 "notify_url": config.get("yishoumi_notify_url", "")
             },
-            "usdt": {"enabled": config.get("pay_usdt") == "True"},
+            "usdt": {"enabled": config.get("pay_usdt") == "True", "address": config.get("usdt_address", ""), "network": config.get("usdt_network", "trc20")},
             "qqpay": {"enabled": config.get("pay_qq") == "True"}
         }
     }
@@ -143,6 +143,8 @@ async def save_payment_settings(request: Request, data: dict = None):
             save_data["yishoumi_notify_url"] = payment["yishoumi"].get("notify_url", "")
         if "usdt" in payment:
             save_data["pay_usdt"] = str(payment["usdt"].get("enabled", False))
+            save_data["usdt_address"] = payment["usdt"].get("address", "")
+            save_data["usdt_network"] = payment["usdt"].get("network", "trc20")
         if "qqpay" in payment:
             save_data["pay_qq"] = str(payment["qqpay"].get("enabled", False))
     
