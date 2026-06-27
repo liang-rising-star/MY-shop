@@ -357,6 +357,14 @@ SYSTEM_IMAGE_NAMES = {
     "qrcode2": "QR_Code_2",
 }
 
+SYSTEM_IMAGE_CONFIG_KEY = {
+    "logo": "config_logo",
+    "background_pc": "config_background_url",
+    "background_mobile": "config_background_mobile_url",
+    "qrcode1": "config_qrcode1_url",
+    "qrcode2": "config_qrcode2_url",
+}
+
 @router.post("/api/admin/upload/system-image")
 async def upload_system_image(request: Request, file: UploadFile = File(...), image_type: str = Form(...)):
     await require_admin(request)
@@ -377,7 +385,7 @@ async def upload_system_image(request: Request, file: UploadFile = File(...), im
         f.write(content)
     rel = os.path.relpath(path, config.DATA_DIR).replace("\\", "/")
     url = f"/api/resource/{rel}"
-    setting_key = f"system_image_{image_type}"
+    setting_key = SYSTEM_IMAGE_CONFIG_KEY[image_type]
     with Session(engine) as s:
         existing = s.query(AppSetting).filter(AppSetting.key == setting_key).first()
         if existing:

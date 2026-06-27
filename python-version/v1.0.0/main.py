@@ -432,6 +432,8 @@ async def get_resource(file_path: str, request: Request):
             full_path = os.path.join(config.DATA_DIR, file_path)
         elif file_path.startswith("uploads_temp/"):
             full_path = os.path.join(config.TEMP_DIR, file_path.replace("uploads_temp/", ""))
+        elif file_path.startswith("system/"):
+            full_path = os.path.join(config.DATA_DIR, file_path)
         else:
             full_path = os.path.join(config.SHOP_DATA_DIR, file_path)
     
