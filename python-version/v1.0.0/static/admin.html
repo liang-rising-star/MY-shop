@@ -828,45 +828,39 @@ input:checked + .slider:before{transform:translateX(20px)}
         </div>
         <div class="bh" @click="toggle('cfg_service')"><h3>📞 客服信息</h3><span class="chevron" :class="{rot:open.cfg_service}">▶</span></div>
         <div class="bd" :class="{collapsed:!open.cfg_service}">
-          <div class="form-grid">
-            <div class="fg"><label>客服QQ</label><input v-model="st.service_qq" placeholder="QQ号码" /></div>
-            <div class="fg"><label>客服微信</label><input v-model="st.service_wechat" placeholder="微信号" /></div>
-            <div class="fg"><label>客服邮箱</label><input v-model="st.service_email" placeholder="support@example.com" /></div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div style="width:120px"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:4px">客服QQ</label><input v-model="st.service_qq" placeholder="QQ号码" style="width:120px" /></div>
+            <div style="width:120px"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:4px">客服微信</label><input v-model="st.service_wechat" placeholder="微信号" style="width:120px" /></div>
+            <div style="width:180px"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:4px">客服邮箱</label><input v-model="st.service_email" placeholder="support@example.com" style="width:180px" /></div>
           </div>
-          <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">二维码1</label>
-            <div class="form-grid">
-              <div class="fg"><label>二维码标题</label><input v-model="st.qrcode1_title" placeholder="如: 微信客服" /></div>
-              <div class="fg">
-                <label>二维码图片</label>
-                <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden" :style="(st.qrcode1_url||sysImgUploading.qrcode1)?'border-style:solid;cursor:default':''" @click="!st.qrcode1_url&&!sysImgUploading.qrcode1 && $refs.qrcode1FileInput.click()" @mouseenter="!st.qrcode1_url&&!sysImgUploading.qrcode1 && ($event.currentTarget.style.borderColor='var(--primary)')" @mouseleave="!st.qrcode1_url&&!sysImgUploading.qrcode1 && ($event.currentTarget.style.borderColor='var(--border)')">
+          <div style="margin-top:1rem;display:flex;gap:1.5rem;flex-wrap:wrap">
+            <div style="display:flex;align-items:flex-start;gap:0.8rem">
+              <div style="width:100px"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:4px">二维码1标题</label><input v-model="st.qrcode1_title" placeholder="如: 微信客服" style="width:100px" /></div>
+              <div>
+                <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:100px;height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden" :style="(st.qrcode1_url||sysImgUploading.qrcode1)?'border-style:solid;cursor:default':''" @click="!st.qrcode1_url&&!sysImgUploading.qrcode1 && $refs.qrcode1FileInput.click()" @mouseenter="!st.qrcode1_url&&!sysImgUploading.qrcode1 && ($event.currentTarget.style.borderColor='var(--primary)')" @mouseleave="!st.qrcode1_url&&!sysImgUploading.qrcode1 && ($event.currentTarget.style.borderColor='var(--border)')">
                   <img v-if="st.qrcode1_url" :src="st.qrcode1_url" style="width:100%;height:100%;object-fit:contain;border-radius:4px" />
-                  <button v-if="st.qrcode1_url&&!sysImgUploading.qrcode1" @click.stop="st.qrcode1_url='';$refs.qrcode1FileInput.value=''" type="button" style="position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:2">&times;</button>
-                  <div v-if="sysImgUploading.qrcode1" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);padding:6px 4px">
-                    <div style="height:6px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden"><div :style="{width:sysImgProgress.qrcode1+'%',height:'100%',background:'var(--primary)',transition:'width 0.15s',borderRadius:'3px'}"></div></div>
-                    <span style="font-size:0.7rem;color:#fff;margin-top:3px;display:block;font-weight:600">{{sysImgProgress.qrcode1}}%</span>
+                  <button v-if="st.qrcode1_url&&!sysImgUploading.qrcode1" @click.stop="st.qrcode1_url='';$refs.qrcode1FileInput.value=''" type="button" style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:2">&times;</button>
+                  <div v-if="sysImgUploading.qrcode1" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);padding:4px">
+                    <div style="height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden"><div :style="{width:sysImgProgress.qrcode1+'%',height:'100%',background:'var(--primary)',transition:'width 0.15s',borderRadius:'2px'}"></div></div>
+                    <span style="font-size:0.65rem;color:#fff;margin-top:2px;display:block;font-weight:600">{{sysImgProgress.qrcode1}}%</span>
                   </div>
-                  <template v-if="!st.qrcode1_url&&!sysImgUploading.qrcode1"><i class="fas fa-qrcode" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.75rem;color:var(--dim)">点击上传</span></template>
+                  <template v-if="!st.qrcode1_url&&!sysImgUploading.qrcode1"><i class="fas fa-qrcode" style="font-size:1.5rem;color:var(--dim)"></i><span style="font-size:0.7rem;color:var(--dim)">上传</span></template>
                 </div>
-                <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 300x300px 正方形</p>
                 <input ref="qrcode1FileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'qrcode1')" />
               </div>
             </div>
-          </div>
-          <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem">二维码2</label>
-            <div class="form-grid">
-              <div class="fg"><label>二维码标题</label><input v-model="st.qrcode2_title" placeholder="如: 微信公众号" /></div>
-              <div class="fg">
-                <label>二维码图片</label>
-                <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden" :style="(st.qrcode2_url||sysImgUploading.qrcode2)?'border-style:solid;cursor:default':''" @click="!st.qrcode2_url&&!sysImgUploading.qrcode2 && $refs.qrcode2FileInput.click()" @mouseenter="!st.qrcode2_url&&!sysImgUploading.qrcode2 && ($event.currentTarget.style.borderColor='var(--primary)')" @mouseleave="!st.qrcode2_url&&!sysImgUploading.qrcode2 && ($event.currentTarget.style.borderColor='var(--border)')">
+            <div style="display:flex;align-items:flex-start;gap:0.8rem">
+              <div style="width:100px"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:4px">二维码2标题</label><input v-model="st.qrcode2_title" placeholder="如: QQ群" style="width:100px" /></div>
+              <div>
+                <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:100px;height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden" :style="(st.qrcode2_url||sysImgUploading.qrcode2)?'border-style:solid;cursor:default':''" @click="!st.qrcode2_url&&!sysImgUploading.qrcode2 && $refs.qrcode2FileInput.click()" @mouseenter="!st.qrcode2_url&&!sysImgUploading.qrcode2 && ($event.currentTarget.style.borderColor='var(--primary)')" @mouseleave="!st.qrcode2_url&&!sysImgUploading.qrcode2 && ($event.currentTarget.style.borderColor='var(--border)')">
                   <img v-if="st.qrcode2_url" :src="st.qrcode2_url" style="width:100%;height:100%;object-fit:contain;border-radius:4px" />
-                  <button v-if="st.qrcode2_url&&!sysImgUploading.qrcode2" @click.stop="st.qrcode2_url='';$refs.qrcode2FileInput.value=''" type="button" style="position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:2">&times;</button>
-                  <div v-if="sysImgUploading.qrcode2" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);padding:6px 4px">
-                    <div style="height:6px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden"><div :style="{width:sysImgProgress.qrcode2+'%',height:'100%',background:'var(--primary)',transition:'width 0.15s',borderRadius:'3px'}"></div></div>
-                    <span style="font-size:0.7rem;color:#fff;margin-top:3px;display:block;font-weight:600">{{sysImgProgress.qrcode2}}%</span>
+                  <button v-if="st.qrcode2_url&&!sysImgUploading.qrcode2" @click.stop="st.qrcode2_url='';$refs.qrcode2FileInput.value=''" type="button" style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:2">&times;</button>
+                  <div v-if="sysImgUploading.qrcode2" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);padding:4px">
+                    <div style="height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden"><div :style="{width:sysImgProgress.qrcode2+'%',height:'100%',background:'var(--primary)',transition:'width 0.15s',borderRadius:'2px'}"></div></div>
+                    <span style="font-size:0.65rem;color:#fff;margin-top:2px;display:block;font-weight:600">{{sysImgProgress.qrcode2}}%</span>
                   </div>
-                  <template v-if="!st.qrcode2_url&&!sysImgUploading.qrcode2"><i class="fas fa-qrcode" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.75rem;color:var(--dim)">点击上传</span></template>
+                  <template v-if="!st.qrcode2_url&&!sysImgUploading.qrcode2"><i class="fas fa-qrcode" style="font-size:1.5rem;color:var(--dim)"></i><span style="font-size:0.7rem;color:var(--dim)">上传</span></template>
                 </div>
-                <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 300x300px 正方形</p>
                 <input ref="qrcode2FileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'qrcode2')" />
               </div>
             </div>
@@ -879,7 +873,7 @@ input:checked + .slider:before{transform:translateX(20px)}
               <label>店铺Logo</label>
               <div style="position:relative;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;transition:.2s;width:140px;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden" :style="(st.logo||sysImgUploading.logo)?'border-style:solid;cursor:default':''" @click="!st.logo&&!sysImgUploading.logo && $refs.logoFileInput.click()" @mouseenter="!st.logo&&!sysImgUploading.logo && ($event.currentTarget.style.borderColor='var(--primary)')" @mouseleave="!st.logo&&!sysImgUploading.logo && ($event.currentTarget.style.borderColor='var(--border)')">
                 <img v-if="st.logo" :src="st.logo" style="width:100%;height:100%;object-fit:contain;border-radius:4px" />
-                <button v-if="st.logo&&!sysImgUploading.logo" @click.stop="st.logo='';$refs.logoFileInput.value=''" type="button" style="position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:2">&times;</button>
+                <button v-if="st.logo&&!sysImgUploading.logo" @click.stop="st.logo='';st.logo_rotate=false;$refs.logoFileInput.value=''" type="button" style="position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:2">&times;</button>
                 <div v-if="sysImgUploading.logo" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);padding:6px 4px">
                   <div style="height:6px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden"><div :style="{width:sysImgProgress.logo+'%',height:'100%',background:'var(--primary)',transition:'width 0.15s',borderRadius:'3px'}"></div></div>
                   <span style="font-size:0.7rem;color:#fff;margin-top:3px;display:block;font-weight:600">{{sysImgProgress.logo}}%</span>
@@ -887,6 +881,10 @@ input:checked + .slider:before{transform:translateX(20px)}
                 <template v-if="!st.logo&&!sysImgUploading.logo"><i class="fas fa-cloud-upload-alt" style="font-size:2rem;color:var(--dim)"></i><span style="font-size:0.8rem;color:var(--dim)">点击上传Logo</span></template>
               </div>
               <p style="font-size:0.72rem;color:var(--dim);margin-top:4px">建议 200x200px，PNG透明背景</p>
+              <div v-if="st.logo" class="sw" style="margin-top:6px;align-items:center">
+                <label style="font-size:0.75rem;color:var(--dim);line-height:1;margin:0">旋转动画</label>
+                <div class="toggle" :class="{on:st.logo_rotate}" @click="st.logo_rotate=!st.logo_rotate"></div>
+              </div>
               <input ref="logoFileInput" type="file" accept="image/*" style="display:none" @change="uploadSystemImage($event,'logo')" />
             </div>
             <div class="fg">
@@ -2028,7 +2026,7 @@ function toggle(k){open.value[k]=!open.value[k]}
 function toggleAccordion(key){open.value[key]=!open.value[key]}
 const sysImgProgress=ref({logo:0,background_pc:0,background_mobile:0,qrcode1:0,qrcode2:0})
 const sysImgUploading=ref({logo:false,background_pc:false,background_mobile:false,qrcode1:false,qrcode2:false})
-const st=ref({shop_name:'',title:'',notice:'',keywords:'',description:'',logo:'',background_url:'',background_mobile_url:'',service_qq:'',service_wechat:'',service_email:'',qrcode1_title:'',qrcode1_url:'',qrcode2_title:'',qrcode2_url:'',register_type:'username',forget_type:'email',session_expire:86400,admin_session_expire:30,username_min_len:3,allow_register:true,login_captcha:false,register_captcha:false,trade_captcha:false,register_verification:false,email_smtp:'',email_port:465,email_secure:'ssl',email_username:'',email_password:'',email_from_name:'MY-Shop',sms_platform:'aliyun',sms_access_key_id:'',sms_access_key_secret:'',sms_sign_name:'',sms_template_code:'',sms_secret_id:'',sms_secret_key:'',sms_sdk_app_id:'',sms_template_id:'',sms_dxbao_username:'',sms_dxbao_password:'',sms_dxbao_template:'',default_category:'0',commodity_recommend:false,commodity_name:'推荐',pay_wx:true,pay_alipay:true,pay_mazf:false,mazf_mch_id:'',mazf_key:'',pay_yishoumi:false,yishoumi_app_id:'',yishoumi_app_key:'',yishoumi_notify_url:'',pay_usdt:false,pay_qq:false,recharge_min:10,recharge_max:5000,recharge_welfare:false,recharge_bonus:0,points_per_yuan:1,shop_closed:false,maintenance_mode:false,closed_message:'',order_timeout:30,auto_receive_days:7,email_notify:false,sms_notify:false,upload_max_size:1024})
+const st=ref({shop_name:'',title:'',notice:'',keywords:'',description:'',logo:'',logo_rotate:false,background_url:'',background_mobile_url:'',service_qq:'',service_wechat:'',service_email:'',qrcode1_title:'',qrcode1_url:'',qrcode2_title:'',qrcode2_url:'',register_type:'username',forget_type:'email',session_expire:86400,admin_session_expire:30,username_min_len:3,allow_register:true,login_captcha:false,register_captcha:false,trade_captcha:false,register_verification:false,email_smtp:'',email_port:465,email_secure:'ssl',email_username:'',email_password:'',email_from_name:'MY-Shop',sms_platform:'aliyun',sms_access_key_id:'',sms_access_key_secret:'',sms_sign_name:'',sms_template_code:'',sms_secret_id:'',sms_secret_key:'',sms_sdk_app_id:'',sms_template_id:'',sms_dxbao_username:'',sms_dxbao_password:'',sms_dxbao_template:'',default_category:'0',commodity_recommend:false,commodity_name:'推荐',pay_wx:true,pay_alipay:true,pay_mazf:false,mazf_mch_id:'',mazf_key:'',pay_yishoumi:false,yishoumi_app_id:'',yishoumi_app_key:'',yishoumi_notify_url:'',pay_usdt:false,pay_qq:false,recharge_min:10,recharge_max:5000,recharge_welfare:false,recharge_bonus:0,points_per_yuan:1,shop_closed:false,maintenance_mode:false,closed_message:'',order_timeout:30,auto_receive_days:7,email_notify:false,sms_notify:false,upload_max_size:1024})
 const lt=ref({enabled:true,show_odds:true,anti_cheat:true,price:1,free_daily:0,points_cost:0,points_threshold:0,pool:[],pity_enabled:false,pity_count:100,pity_product_id:0,pity_odds:100})
 const ev=ref({enabled:false,banner_title:'',banner_desc:'',show_progress:true,show_countdown:true})
 const pay=ref({
@@ -2319,7 +2317,7 @@ function uploadSystemImage(event, imageType) {
   }
   xhr.send(fd)
 }
-async function saveSt(){await api.rq('POST','/api/admin/config',st.value);await api.rq('POST','/api/admin/logs/retention',{retention_days:logRetention.value});tst('设置已保存','ok')}
+async function saveSt(){if(!st.value.logo){await api.rq('POST','/api/admin/settings/delete-logo').catch(()=>{})}await api.rq('POST','/api/admin/config',st.value);await api.rq('POST','/api/admin/logs/retention',{retention_days:logRetention.value});tst('设置已保存','ok')}
 async function testEmail(){const email=prompt('请输入测试邮箱地址：');if(!email)return;try{await api.rq('POST','/api/admin/config/email/test',{email});tst('测试邮件发送成功','ok')}catch(e){tst('发送失败: '+e.message,'er')}}
 async function testSms(){const phone=prompt('请输入测试手机号：');if(!phone)return;try{await api.rq('POST','/api/admin/config/sms/test',{phone});tst('测试短信发送成功','ok')}catch(e){tst('发送失败: '+e.message,'er')}}
 async function saveLt(){await api.rq('POST','/api/admin/lottery',lt.value);tst('抽奖设置已保存','ok')}

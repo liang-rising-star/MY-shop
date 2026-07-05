@@ -80,7 +80,8 @@ const app = createApp({
       description: '',
       shop_closed: false,
       maintenance_mode: false,
-      closed_message: ''
+      closed_message: '',
+      logo_rotate: false
     })
     const showService = ref(false)
     const editingProduct = ref(null)
@@ -226,6 +227,14 @@ const timedProducts = computed(() => eventProducts.value)
       } catch(e) {}
     }
 
+    function parseConfigValue(v) {
+      if (v === 'True') return true
+      if (v === 'False') return false
+      if (v === 'true') return true
+      if (v === 'false') return false
+      return v
+    }
+
     async function loadConfig() {
       try {
         const d = await API.request('GET', '/api/site/settings')
@@ -233,7 +242,7 @@ const timedProducts = computed(() => eventProducts.value)
           const flat = {}
           for (const [k, v] of Object.entries(d.settings)) {
             const key = k.startsWith('config_') ? k.slice(7) : k
-            flat[key] = v
+            flat[key] = parseConfigValue(v)
           }
           config.value = { ...config.value, ...flat }
           // 更新页面标题

@@ -9,6 +9,7 @@ router = APIRouter()
 
 def get_payment_config():
     """从数据库获取支付配置"""
+    settings = {}
     with Session(engine) as s:
         for key in [
             "pay_wx", "pay_alipay", "pay_mazf", "pay_yishoumi", 

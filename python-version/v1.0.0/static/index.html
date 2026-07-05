@@ -77,7 +77,7 @@
       <div class="nav-inner">
         <a class="logo" href="/" @click.prevent="navigate('home')">
           <span class="logo-icon" v-if="!config.logo">⬡</span>
-          <span class="logo-icon" v-else>
+          <span class="logo-icon" v-else :style="config.logo_rotate ? 'animation:spin 4s linear infinite' : 'animation:none'">
             <img :src="config.logo" :alt="config.shop_name || 'MY-Shop'" @error="config.logo = ''" />
           </span>
           <span class="logo-text">{{ config.shop_name || 'MY-Shop' }}</span>
@@ -103,7 +103,9 @@
       </div>
     </nav>
     <div v-if="config.notice && !setupRequired" class="notice-bar">
-      <i class="fas fa-bullhorn" style="margin-right:0.5rem"></i>{{ config.notice }}
+      <div class="notice-bar-inner">
+        <i class="fas fa-bullhorn" style="margin-right:0.5rem"></i>{{ config.notice }}
+      </div>
     </div>
 
     <main v-show="!setupRequired">
@@ -843,6 +845,6 @@
 
   <script src="/static/js/vue.min.js" defer></script>
   <script src="/static/js/api.js?v=202606210100" defer></script>
-  <script src="/static/js/app.js?v=202606210100" defer></script>
+  <script src="/static/js/app.js?v=202606300100" defer></script>
 </body>
 </html>

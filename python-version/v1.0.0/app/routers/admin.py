@@ -154,6 +154,24 @@ async def save_settings(data: dict, request: Request):
         s.commit()
     return {"message": "设置已保存"}
 
+
+@router.post("/api/admin/settings/delete-logo")
+async def delete_logo(request: Request):
+    await require_admin(request)
+    logo_dir = os.path.join(config.DATA_DIR, "system", "logo")
+    if os.path.exists(logo_dir):
+        import shutil
+        shutil.rmtree(logo_dir, ignore_errors=True)
+    with Session(engine) as s:
+        existing = s.query(AppSetting).filter(AppSetting.key == "config_logo").first()
+        if existing:
+            existing.value = ""
+        rotate = s.query(AppSetting).filter(AppSetting.key == "config_logo_rotate").first()
+        if rotate:
+            rotate.value = "False"
+        s.commit()
+    return {"message": "Logo已删除"}
+
 @router.get("/api/admin/config")
 async def get_config(request: Request):
     await require_admin(request)
