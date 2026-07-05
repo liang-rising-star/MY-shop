@@ -76,6 +76,7 @@ const app = createApp({
       qrcode2_title: '',
       qrcode2_url: '',
       notice: '',
+      popup_notice: '',
       keywords: '',
       description: '',
       shop_closed: false,
@@ -83,6 +84,7 @@ const app = createApp({
       closed_message: '',
       logo_rotate: false
     })
+    const showPopupNotice = ref(false)
     const showService = ref(false)
     const editingProduct = ref(null)
     const prodForm = ref({ Name:'',Description:'',Price:0,CategoryID:0,Type:'normal',ImageURL:'' })
@@ -152,6 +154,11 @@ const app = createApp({
       let path = name === 'home' ? '/' : '/' + name
       if (extra) path += '/' + extra
       history.pushState(null, '', path)
+    }
+
+    function closePopupNotice() {
+      showPopupNotice.value = false
+      try { sessionStorage.setItem('popup_notice_closed', '1') } catch(e) {}
     }
 
     function initRoute() {
@@ -248,6 +255,10 @@ const timedProducts = computed(() => eventProducts.value)
           // 更新页面标题
           if (flat.title) {
             document.title = `${flat.shop_name || 'MY-Shop'} - ${flat.title}`
+          }
+          // 显示公告弹窗（仅首次访问且未关闭过）
+          if (flat.popup_notice && !sessionStorage.getItem('popup_notice_closed')) {
+            showPopupNotice.value = true
           }
         }
       } catch(e) {}
@@ -757,6 +768,11 @@ const timedProducts = computed(() => eventProducts.value)
     })
 
     watch(token, () => { if(token.value){ loadProfile(); loadOrders(); loadMyCoupons() } })
+    watch(() => config.value.popup_notice, (val) => {
+      if (val && !showPopupNotice.value && !sessionStorage.getItem('popup_notice_closed')) {
+        showPopupNotice.value = true
+      }
+    })
 
     window.addEventListener('popstate', initRoute)
 
@@ -882,7 +898,8 @@ const timedProducts = computed(() => eventProducts.value)
       showPayModal, payPreview, selectedPayMethod, selectedCouponId,
       promoCodeInput, promoMsg, promoMsgType, paySubmitting,
       selectCoupon, applyPromoCode, confirmPay,
-      showConfirmModal, confirmMessage, confirmResolveFn
+      showConfirmModal, confirmMessage, confirmResolveFn,
+      showPopupNotice, closePopupNotice
     }
   }
 })

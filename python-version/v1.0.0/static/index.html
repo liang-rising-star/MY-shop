@@ -108,6 +108,22 @@
       </div>
     </div>
 
+    <!-- 网站公告弹窗 -->
+    <div v-if="showPopupNotice && config.popup_notice" class="popup-notice-overlay" @click.self="closePopupNotice">
+      <div class="popup-notice-modal">
+        <div class="popup-notice-header">
+          <i class="fas fa-bullhorn"></i>
+          <span>网站公告</span>
+        </div>
+        <div class="popup-notice-body">
+          {{ config.popup_notice }}
+        </div>
+        <div class="popup-notice-footer">
+          <button class="btn-glow" @click="closePopupNotice">我知道了</button>
+        </div>
+      </div>
+    </div>
+
     <main v-show="!setupRequired">
       <transition name="page-fade" mode="out-in">
 
@@ -844,7 +860,7 @@
   </div>
 
   <script src="/static/js/vue.min.js" defer></script>
-  <script src="/static/js/api.js?v=202606210100" defer></script>
-  <script src="/static/js/app.js?v=202606300100" defer></script>
+  <script src="/static/js/api.js?v=202607050100" defer></script>
+  <script src="/static/js/app.js?v=202607050100" defer></script>
 </body>
 </html>
