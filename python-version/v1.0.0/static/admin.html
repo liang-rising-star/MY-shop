@@ -98,7 +98,7 @@ tr:hover td{background:rgba(0,240,255,0.03)}
 .fg label{display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.5rem}
 input,select,textarea{width:100%;padding:0.45rem 0.7rem;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.85rem;border-radius:4px;outline:none;font-family:inherit;box-sizing:border-box}
 input:focus,select:focus{border-color:var(--primary)}
-textarea{resize:vertical;min-height:70px}
+textarea{min-height:1.5em}
 .sw{display:flex;align-items:center;gap:0.5rem;font-size:0.85rem}
 .sw label{font-size:0.85rem;color:var(--text)}
 .sw .toggle{position:relative;width:40px;height:22px;background:var(--border);border-radius:11px;cursor:pointer;transition:.2s}
@@ -825,8 +825,7 @@ input:checked + .slider:before{transform:translateX(20px)}
             <div class="fg"><label>页面标题</label><input v-model="st.title" /></div>
             <div class="fg"><label>店铺公告</label><input v-model="st.notice" /></div>
           </div>
-          <div class="fg" style="margin-top:1rem"><label>网站公告弹窗（进入前台时显示，留空不弹出）</label><textarea v-model="st.popup_notice" placeholder="输入公告内容，用户进入前台时会弹出显示" rows="3" style="min-height:80px"></textarea></div>
-        </div>
+          <div class="fg" style="margin-top:1rem;flex:none;width:100%"><label>网站公告弹窗（进入前台时显示，留空不弹出）</label><textarea v-model="st.popup_notice" v-autoresize placeholder="输入公告内容，用户进入前台时会弹出显示" rows="1" style="resize:none;overflow:hidden"></textarea></div>        </div>
         <div class="bh" @click="toggle('cfg_service')"><h3>📞 客服信息</h3><span class="chevron" :class="{rot:open.cfg_service}">▶</span></div>
         <div class="bd" :class="{collapsed:!open.cfg_service}">
           <div style="display:flex;gap:1rem;flex-wrap:wrap">
@@ -2408,6 +2407,17 @@ async function manualCleanupLogs(){
 }
 return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,integrityIssues,showIntegrityPopup,integrityCount,checkIntegrity,resolveIntegrityIssue,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,uploadSystemImage,sysImgProgress,sysImgUploading,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
 }
+}).directive('autoresize', {
+  mounted(el) {
+    function resize() { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+    el.addEventListener('input', resize);
+    setTimeout(resize, 0);
+    setTimeout(resize, 500);
+  },
+  updated(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
 }).mount('#app')
 // 后备方案已移至独立script标签
 } catch(e) { console.error('[ADMIN ERROR]', e.message, e.stack);
