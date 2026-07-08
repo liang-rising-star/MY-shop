@@ -63,17 +63,29 @@ async def delete_key(kid: int, request: Request):
 async def batch_delete_keys(data: dict, request: Request):
     await require_admin(request)
     ids = data.get("ids", [])
-    if not ids:
-        raise HTTPException(400, "请选择要删除的卡密")
-    with Session(engine) as s:
-        keys = s.query(CardKey).filter(CardKey.id.in_(ids)).all()
-        deleted = 0
-        skipped = 0
-        for k in keys:
-            if k.status == "sold":
-                skipped += 1
-            else:
+    product_id = data.get("product_id")
+    count = data.get("count", 0)
+    if ids:
+        with Session(engine) as s:
+            keys = s.query(CardKey).filter(CardKey.id.in_(ids)).all()
+            deleted = 0
+            skipped = 0
+            for k in keys:
+                if k.status == "sold":
+                    skipped += 1
+                else:
+                    s.delete(k)
+                    deleted += 1
+            s.commit()
+        return {"message": f"已删除{deleted}条" + (f"，跳过{skipped}条已售出" if skipped else ""), "deleted": deleted, "skipped": skipped}
+    elif product_id and count > 0:
+        with Session(engine) as s:
+            keys = s.query(CardKey).filter(CardKey.product_id == product_id, CardKey.status == "available").limit(count).all()
+            deleted = 0
+            for k in keys:
                 s.delete(k)
                 deleted += 1
-        s.commit()
-    return {"message": f"已删除{deleted}条" + (f"，跳过{skipped}条已售出" if skipped else ""), "deleted": deleted, "skipped": skipped}
+            s.commit()
+        return {"message": f"已删除{deleted}条", "deleted": deleted}
+    else:
+        raise HTTPException(400, "请选择要删除的卡密")

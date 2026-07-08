@@ -1411,11 +1411,11 @@ input:checked + .slider:before{transform:translateX(20px)}
         <div class="restock-info">
           <div class="restock-product">
             <div style="width:50px;height:50px;background:var(--bg3);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.5rem">
-              📦
+              {{ restockProduct?.delivery_type==='file'?'💾':restockProduct?.delivery_type==='manual'?'✍️':'🔑' }}
             </div>
             <div class="restock-product-info">
               <h4>{{ restockProduct?.name }}</h4>
-              <span style="font-size:0.85rem;color:var(--dim)">ID: {{ restockProduct?.id }}</span>
+              <span style="font-size:0.85rem;color:var(--dim)">ID: {{ restockProduct?.id }} · {{ restockProduct?.delivery_type==='file'?'文件发货':restockProduct?.delivery_type==='manual'?'手动发货':'卡密发货' }}</span>
             </div>
           </div>
           <div class="restock-stats">
@@ -1433,47 +1433,60 @@ input:checked + .slider:before{transform:translateX(20px)}
         </div>
         
         <div class="restock-form">
-          <div>
+          <!-- 卡密发货 -->
+          <div v-if="restockProduct?.delivery_type==='card_key'">
             <label style="display:block;font-size:0.85rem;color:var(--dim);margin-bottom:0.5rem">📝 输入卡密（一行一个）</label>
             <textarea v-model="restockKeys" placeholder="例如：
 ABCD-1234-EFGH-5678
 WXYZ-9876-IJKL-5432
 MNOP-1111-QRST-2222" style="min-height:150px;font-family:monospace;font-size:0.9rem"></textarea>
+            <div class="quick-buttons" style="flex-direction:column;gap:0.75rem;margin-top:0.75rem">
+              <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                <span style="font-size:0.85rem;color:var(--dim)">🚀 快速生成：</span>
+                <input v-model.number="quickGenerateCount" type="number" min="1" max="1000" placeholder="数量" style="width:100px;padding:0.4rem;font-size:0.9rem" />
+                <button class="quick-btn" @click="generateQuickKeys" :disabled="!quickGenerateCount || quickGenerateCount < 1">
+                  <i class="fas fa-magic"></i> 生成卡密
+                </button>
+              </div>
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="quick-btn" @click="generateAndAddKeys(10)">🎲 +10个</button>
+                <button class="quick-btn" @click="generateAndAddKeys(50)">🎲 +50个</button>
+                <button class="quick-btn" @click="generateAndAddKeys(100)">🎲 +100个</button>
+                <button class="quick-btn" @click="generateAndAddKeys(500)">🎲 +500个</button>
+              </div>
+            </div>
+            <div v-if="restockKeys" style="padding:0.75rem;background:var(--bg3);border-radius:6px;font-size:0.85rem;margin-top:0.75rem">
+              <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
+                <span>本次将添加：</span>
+                <strong style="color:var(--success)">{{ getKeyCount() }} 个卡密</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span>补货后总库存：</span>
+                <strong style="color:var(--primary)">{{ (restockProduct?.available_stock||0) + getKeyCount() }}</strong>
+              </div>
+            </div>
           </div>
-          
-          <div class="quick-buttons" style="flex-direction:column;gap:0.75rem">
-            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
-              <span style="font-size:0.85rem;color:var(--dim)">🚀 快速生成：</span>
-              <input v-model.number="quickGenerateCount" type="number" min="1" max="1000" placeholder="数量" style="width:100px;padding:0.4rem;font-size:0.9rem" />
-              <button class="quick-btn" @click="generateQuickKeys" :disabled="!quickGenerateCount || quickGenerateCount < 1">
-                <i class="fas fa-magic"></i> 生成卡密
-              </button>
-            </div>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-              <button class="quick-btn" @click="generateAndAddKeys(10)">🎲 +10个</button>
-              <button class="quick-btn" @click="generateAndAddKeys(50)">🎲 +50个</button>
-              <button class="quick-btn" @click="generateAndAddKeys(100)">🎲 +100个</button>
-              <button class="quick-btn" @click="generateAndAddKeys(500)">🎲 +500个</button>
-            </div>
+
+          <!-- 文件发货 -->
+          <div v-if="restockProduct?.delivery_type==='file'">
+            <label style="display:block;font-size:0.85rem;color:var(--dim);margin-bottom:0.5rem">📦 库存数量</label>
+            <input v-model.number="restockStockCount" type="number" min="0" style="font-size:1.2rem;padding:0.8rem;text-align:center" />
+            <p style="font-size:0.75rem;color:var(--dim);margin-top:0.5rem">文件已在商品设置中上传，直接修改库存数量</p>
           </div>
-          
-          <div v-if="restockKeys" style="padding:0.75rem;background:var(--bg3);border-radius:6px;font-size:0.85rem">
-            <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
-              <span>本次将添加：</span>
-              <strong style="color:var(--success)">{{ getKeyCount() }} 个卡密</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between">
-              <span>补货后总库存：</span>
-              <strong style="color:var(--primary)">{{ (restockProduct?.available_stock||0) + getKeyCount() }}</strong>
-            </div>
+
+          <!-- 手动发货 -->
+          <div v-if="restockProduct?.delivery_type==='manual'">
+            <label style="display:block;font-size:0.85rem;color:var(--dim);margin-bottom:0.5rem">✍️ 发货内容（每个订单发送相同内容）</label>
+            <textarea v-model="restockKeys" placeholder="输入发货内容，用户购买后会看到此内容&#10;例如：感谢购买，这是您的激活码 XXXX-XXXX" style="min-height:120px;font-size:0.9rem"></textarea>
+            <p style="font-size:0.75rem;color:var(--dim);margin-top:0.5rem">提示：手动发货商品需要在订单管理中逐个确认发货</p>
           </div>
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-a" @click="closeRestockModal">取消</button>
-      <button class="btn btn-p" @click="confirmRestock" :disabled="!restockKeys.trim()">
-        <i class="fas fa-check"></i> 确认补货
+      <button class="btn btn-p" @click="confirmRestock" :disabled="(restockProduct?.delivery_type==='card_key'&&!restockKeys.trim())||(restockProduct?.delivery_type==='file'&&!restockStockCount)||(restockProduct?.delivery_type==='manual'&&!restockKeys.trim())">
+        <i class="fas fa-check"></i> {{ restockProduct?.delivery_type==='manual'?'保存发货内容':'确认补货' }}
       </button>
     </div>
   </div>
@@ -1752,12 +1765,12 @@ async function changeTheme(theme){
   savingTheme=false
 }
 const ps=ref([]),or=ref([]),us=ref([]),cs=ref([]),ct=ref([]),ks=ref([]),da=ref({})
-const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'})
+const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key',total_stock:0,stock_warning:10})
 const selectedKeys=ref([])
 const showProductModal=ref(false),editingProduct=ref(null),fileInput=ref(null),mediaFileInput=ref(null),dragIdx=ref(-1),dragEl=ref(null),uploadProgress=ref(-1),videoThumbMap=ref({}),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],mediaList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
 const currentTaskId=ref('')
 const productFiles=ref([])
-const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),quickGenerateCount=ref(100)
+const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),restockFiles=ref([]),restockStockCount=ref(0),quickGenerateCount=ref(100)
 const refreshingStock=ref(false),stockUpdateTime=ref({}),stockPollInterval=ref(null)
 const recommends=ref([]),currentRecommendCategory=ref(null),showAddProductModal=ref(false)
 const imageFileInput=ref(null),eventImageFileInput=ref(null)
@@ -1999,14 +2012,30 @@ function refreshAllStocks(){if(refreshingStock.value)return;refreshingStock.valu
 function startStockPolling(){if(stockPollInterval.value)return;stockPollInterval.value=setInterval(()=>{if(tb.value==='pd'&&!showProductModal.value&&!showRestockModal.value){refreshAllStocks()}},5000)}
 function stopStockPolling(){if(stockPollInterval.value){clearInterval(stockPollInterval.value);stockPollInterval.value=null}}
 function toggleProductActive(p){const newVal=p.is_active===false;api.rq('PUT','/api/admin/products/'+p.id,{is_active:newVal}).then(()=>{p.is_active=newVal;tst(newVal?'已上架':'已下架','ok')}).catch(e=>tst(e.message,'er'))}
-function openRestockModal(p){restockProduct.value=p;restockKeys.value='';quickGenerateCount.value=100;showRestockModal.value=true}
+function openRestockModal(p){restockProduct.value=p;restockKeys.value='';restockFiles.value=[];restockStockCount.value=p.available_stock||0;quickGenerateCount.value=100;showRestockModal.value=true}
 function closeRestockModal(){showRestockModal.value=false;restockProduct.value=null;restockKeys.value=''}
 function getKeyCount(){if(!restockKeys.value)return 0;return restockKeys.value.split('\n').filter(k=>k.trim()).length}
 function generateKey(){const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';let key='';for(let i=0;i<4;i++){if(i>0)key+='-';for(let j=0;j<4;j++){key+=chars.charAt(Math.floor(Math.random()*chars.length))}}return key}
 function generateKeys(count){let keys=[];for(let i=0;i<count;i++){keys.push(generateKey())}return keys}
 function generateQuickKeys(){const count=quickGenerateCount.value||100;const keys=generateKeys(count);restockKeys.value=(restockKeys.value?restockKeys.value+'\n':'')+keys.join('\n')}
 function generateAndAddKeys(count){const keys=generateKeys(count);restockKeys.value=(restockKeys.value?restockKeys.value+'\n':'')+keys.join('\n')}
-function confirmRestock(){if(!restockProduct.value){tst('请选择商品','er');return}let keys=[];if(restockKeys.value.trim()){keys=restockKeys.value.split('\n').filter(k=>k.trim())}if(keys.length===0){tst('请输入卡密或使用快速生成','er');return}const data={product_id:restockProduct.value.id,keys:restockKeys.value};api.rq('POST','/api/admin/cardkeys/import',data).then(()=>{closeRestockModal();refreshAllStocks();tst(`成功添加 ${keys.length} 个卡密`,'ok')}).catch(e=>tst(e.message,'er'))}
+function handleRestockFileUpload(e){const files=Array.from(e.target.files);restockFiles.value.push(...files);e.target.value=''}
+function confirmRestock(){
+  if(!restockProduct.value){tst('请选择商品','er');return}
+  const dt=restockProduct.value.delivery_type;
+  if(dt==='card_key'){
+    let keys=[];if(restockKeys.value.trim()){keys=restockKeys.value.split('\n').filter(k=>k.trim())}
+    if(keys.length===0){tst('请输入卡密或使用快速生成','er');return}
+    const data={product_id:restockProduct.value.id,keys:restockKeys.value};
+    api.rq('POST','/api/admin/cardkeys/import',data).then(()=>{closeRestockModal();refreshAllStocks();tst(`成功添加 ${keys.length} 个卡密`,'ok')}).catch(e=>tst(e.message,'er'))
+  }else if(dt==='file'){
+    if(!restockStockCount.value){tst('请输入调整数量','er');return}
+    api.rq('POST','/api/admin/products/'+restockProduct.value.id+'/adjust-stock',{count:restockStockCount.value}).then(()=>{closeRestockModal();refreshAllStocks();tst('库存已调整','ok')}).catch(e=>tst(e.message,'er'))
+  }else if(dt==='manual'){
+    if(!restockKeys.value.trim()){tst('请输入发货内容','er');return}
+    api.rq('PUT','/api/admin/products/'+restockProduct.value.id,{auto_delivery_content:restockKeys.value}).then(()=>{closeRestockModal();tst('发货内容已更新','ok')}).catch(e=>tst(e.message,'er'))
+  }
+}
 
 const sco=ref(false),scf=ref(false),cpc=ref({code:'',coupon_id:0,remark:'',max_uses:0,expires_at:''}),cf=ref({name:'',sort_order:0}),promoCodes=ref([]),coupons=ref([]),showAddCoupon=ref(false),newCoupon=ref({name:'',type:'percentage',value:0,min_amount:0,total_count:0,expires_at:''})
 const coTab=ref('promo')
@@ -2159,8 +2188,8 @@ watch(()=>kp.value,(newVal)=>{if(newVal&&tb.value==='ke')loadCardKeys(newVal)})
 const stockUpdateWatcher=computed(()=>JSON.stringify(stockUpdateTime.value))
 function svPd(){const d=pf.value;if(!d.name||!d.price){tst('请填写完整','er');return}
   const fn=eid.value?api.rq('PUT','/api/admin/products/'+eid.value,d):api.rq('POST','/api/admin/products',d)
-  fn.then(()=>{spf.value=false;eid.value=0;pf.value={name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key'};api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已保存','ok')}).catch(e=>tst(e.message,'er'))}
-function edPd(p){eid.value=p.id;pf.value={name:p.name,description:p.description||'',price:p.price,category_id:p.category_id,type:p.type,delivery_type:p.delivery_type||'card_key'};spf.value=true}
+  fn.then(()=>{spf.value=false;eid.value=0;pf.value={name:'',description:'',price:0,category_id:0,type:'normal',delivery_type:'card_key',total_stock:0,stock_warning:10};api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已保存','ok')}).catch(e=>tst(e.message,'er'))}
+function edPd(p){eid.value=p.id;pf.value={name:p.name,description:p.description||'',price:p.price,category_id:p.category_id,type:p.type,delivery_type:p.delivery_type||'card_key',total_stock:p.total_stock||0,stock_warning:p.stock_warning||10};spf.value=true}
 async function dlPd(id){if(!(await confirmAsync('确定删除？')))return;api.rq('DELETE','/api/admin/products/'+id).then(()=>{api.rq('GET','/api/products').then(d=>ps.value=d.products||[]);tst('已删除','ok')}).catch(e=>tst(e.message,'er'))}
 function loadCardKeys(pid){api.rq('GET','/api/admin/cardkeys?product_id='+pid).then(d=>{ks.value=d||[]}).catch(()=>{ks.value=[]})}
 function sk(p){kp.value=p.id;tb.value='ke';selectedKeys.value=[];loadCardKeys(p.id)}
@@ -2405,7 +2434,7 @@ async function saveLogRetention(){
 async function manualCleanupLogs(){
   try{await api.rq('POST','/api/admin/logs/cleanup');tst('已清理过期日志','ok');loadLogs()}catch(e){tst(e.message,'er')}
 }
-return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,integrityIssues,showIntegrityPopup,integrityCount,checkIntegrity,resolveIntegrityIssue,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,uploadSystemImage,sysImgProgress,sysImgUploading,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
+return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,restockFiles,restockStockCount,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,handleRestockFileUpload,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,integrityIssues,showIntegrityPopup,integrityCount,checkIntegrity,resolveIntegrityIssue,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,uploadSystemImage,sysImgProgress,sysImgUploading,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
 }
 }).directive('autoresize', {
   mounted(el) {

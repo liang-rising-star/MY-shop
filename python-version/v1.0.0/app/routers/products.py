@@ -236,6 +236,7 @@ async def create_product(data: dict, request: Request):
             type=data.get("type","normal"),
             stock=data.get("stock",-1),
             stock_warning=data.get("stock_warning",10),
+            total_stock=data.get("total_stock",0),
             max_buy_limit=data.get("max_buy_limit",0),
             per_user_limit=data.get("per_user_limit",0),
             delivery_type=data.get("delivery_type","card_key"),
@@ -733,6 +734,58 @@ async def delete_product_file(pid: int, fid: int, request: Request):
         
         s.commit()
         return {"message": "已删除"}
+
+# 添加下载链接
+@router.post("/api/admin/products/{pid}/add-urls")
+async def add_download_urls(pid: int, request: Request, data: dict):
+    await require_admin(request)
+    urls = data.get("urls", [])
+    if not urls:
+        raise HTTPException(status_code=400, detail="请提供下载链接")
+    
+    with Session(engine) as s:
+        product = s.query(Product).filter(Product.id == pid).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="商品不存在")
+        
+        files_list = json.loads(product.files_list or "[]")
+        for url in urls:
+            url = url.strip()
+            if url:
+                files_list.append({
+                    "id": len(files_list) + 1,
+                    "name": url.split("/")[-1] if "/" in url else url,
+                    "size": "",
+                    "url": url,
+                    "type": "url"
+                })
+        
+        product.files_list = json.dumps(files_list, ensure_ascii=False)
+        s.commit()
+        return {"message": f"已添加 {len(urls)} 个下载链接", "files_list": files_list}
+
+# 调整商品库存（文件/手动发货商品用）
+@router.post("/api/admin/products/{pid}/adjust-stock")
+async def adjust_stock(pid: int, request: Request, data: dict):
+    await require_admin(request)
+    new_count = data.get("count", 0)
+    if new_count < 0:
+        new_count = 0
+    with Session(engine) as s:
+        p = s.query(Product).filter(Product.id == pid).first()
+        if not p:
+            raise HTTPException(404, "商品不存在")
+        current = s.query(CardKey).filter(CardKey.product_id == pid, CardKey.status == "available").count()
+        if new_count > current:
+            for i in range(new_count - current):
+                s.add(CardKey(product_id=pid, key=f"FILE-{pid}-{current+i+1}"))
+        elif new_count < current:
+            keys = s.query(CardKey).filter(CardKey.product_id == pid, CardKey.status == "available").limit(current - new_count).all()
+            for k in keys:
+                s.delete(k)
+        s.commit()
+        final = s.query(CardKey).filter(CardKey.product_id == pid, CardKey.status == "available").count()
+        return {"message": f"库存已设置为 {final}", "stock": final}
 
 # 从temp文件夹压缩文件
 @router.post("/api/admin/products/{pid}/compress-temp")
