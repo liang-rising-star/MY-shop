@@ -331,7 +331,7 @@
                   <span v-for="t in detail.product.tags.split(',')" :key="t" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:var(--bg3);color:var(--dim);border:1px solid var(--border)">{{ t.trim() }}</span>
                 </div>
                 <div class="detail-price-box">
-                  <h2 class="detail-name" style="margin-bottom:0.5rem;font-size:1.3rem">{{ detail.product.name }}</h2>
+                  <h2 class="detail-name" style="margin-bottom:0.5rem">{{ detail.product.name }}</h2>
                   <div class="detail-price" v-if="detail.product.is_discount_active">
                     <s>¥{{ detail.product.price.toFixed(2) }}</s>
                     <span>¥{{ detail.product.display_price.toFixed(2) }}</span>
