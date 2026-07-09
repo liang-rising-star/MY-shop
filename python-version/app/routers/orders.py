@@ -183,7 +183,7 @@ async def create_order(data: dict, request: Request):
                     raise HTTPException(400, f"奖品[{entry.prize_id}]库存不足")
         else:
             avail = s.query(CardKey).filter(CardKey.product_id == pid, CardKey.status == "available").count()
-            if p.delivery_type in ("card_key", "file") and avail < qty:
+            if p.delivery_type == "card_key" and avail < qty:
                 raise HTTPException(400, "库存不足")
 
         total = p.price * qty; discount = 0.0; coupon_id = None
@@ -323,13 +323,6 @@ def deliver_order(order_id: int, s: Session):
             for k in keys:
                 k.status="sold"; k.order_id=order.id; k.sold_at=datetime.datetime.utcnow()
                 delivered.append(k)
-    elif p.delivery_type == "file":
-        keys = s.query(CardKey).filter(CardKey.product_id==p.id, CardKey.status=="available").with_for_update().limit(order.quantity).all()
-        if len(keys) < order.quantity:
-            raise Exception("库存不足")
-        for k in keys:
-            k.status="sold"; k.order_id=order.id; k.sold_at=datetime.datetime.utcnow()
-            delivered.append(k)
 
     # 更新销量和积分
     s.query(Product).filter(Product.id==p.id).update({"total_sold": Product.total_sold + order.quantity})

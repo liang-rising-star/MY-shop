@@ -120,9 +120,7 @@ async def user_center(request: Request):
             "order_counts": order_counts,
             "recent_orders": [{
                 "id": o.id, "order_no": o.order_no, "product_name": o.product.name if o.product else "",
-                "final_price": o.final_price, "status": o.status, "delivery_type": o.delivery_type,
-                "created_at": str(o.created_at),
-                "product": {"files_list": o.product.files_list} if o.product and o.delivery_type == "file" else None,
+                "final_price": o.final_price, "status": o.status, "created_at": str(o.created_at),
                 "card_keys": [{c.name: getattr(k, c.name) for c in k.__table__.columns} for k in o.card_keys]
             } for o in recent],
         }
@@ -149,7 +147,6 @@ async def user_orders(request: Request, status: str = "", page: int = 1):
             "quantity": o.quantity, "total_price": o.total_price, "discount": o.discount,
             "final_price": o.final_price, "status": o.status, "delivery_type": o.delivery_type,
             "created_at": str(o.created_at), "payment_method": payment_methods.get(o.id),
-            "product": {"files_list": o.product.files_list} if o.product and o.delivery_type == "file" else None,
             "card_keys": [{c.name: getattr(k, c.name) for c in k.__table__.columns} for k in o.card_keys]
         } for o in orders]}
 

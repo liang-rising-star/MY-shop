@@ -3,12 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <title>MY-Shop - 异次元商店</title>
-  <meta name="keywords" :content="config.keywords || ''" />
-  <meta name="description" :content="config.description || ''" />
   <script>
   window._initialTheme = 'cyberpunk';
   (function() {
@@ -40,18 +35,6 @@
 <body>
   <div id="app">
     <div id="bg-image" :style="{ backgroundImage: config.background_url ? `url(${config.background_url})` : 'none' }"></div>
-    <div id="bg-image-mobile" :style="config.background_mobile_url ? { backgroundImage: `url(${config.background_mobile_url})` } : {}"></div>
-
-    <!-- 商店关闭/维护模式 -->
-    <div v-if="config.shop_closed || config.maintenance_mode" class="shop-closed-overlay">
-      <div class="shop-closed-box">
-        <h2 v-if="config.shop_closed">店铺已关闭</h2>
-        <h2 v-if="config.maintenance_mode && !config.shop_closed">系统维护中</h2>
-        <p v-if="config.closed_message">{{ config.closed_message }}</p>
-        <p v-else-if="config.shop_closed">店铺暂时关闭，请稍后再来</p>
-        <p v-else>系统正在维护中，请稍后再来</p>
-      </div>
-    </div>
     <canvas id="particle-canvas"></canvas>
 
     <!-- Setup -->
@@ -77,7 +60,7 @@
       <div class="nav-inner">
         <a class="logo" href="/" @click.prevent="navigate('home')">
           <span class="logo-icon" v-if="!config.logo">⬡</span>
-          <span class="logo-icon" v-else :style="config.logo_rotate ? 'animation:spin 4s linear infinite' : 'animation:none'">
+          <span class="logo-icon" v-else>
             <img :src="config.logo" :alt="config.shop_name || 'MY-Shop'" @error="config.logo = ''" />
           </span>
           <span class="logo-text">{{ config.shop_name || 'MY-Shop' }}</span>
@@ -102,27 +85,6 @@
         <button class="menu-toggle" @click="menuOpen=!menuOpen"><span></span><span></span><span></span></button>
       </div>
     </nav>
-    <div v-if="config.notice && !setupRequired" class="notice-bar">
-      <div class="notice-bar-inner">
-        <i class="fas fa-bullhorn" style="margin-right:0.5rem"></i>{{ config.notice }}
-      </div>
-    </div>
-
-    <!-- 网站公告弹窗 -->
-    <div v-if="showPopupNotice && config.popup_notice" class="popup-notice-overlay" @click.self="closePopupNotice">
-      <div class="popup-notice-modal">
-        <div class="popup-notice-header">
-          <i class="fas fa-bullhorn"></i>
-          <span>网站公告</span>
-        </div>
-        <div class="popup-notice-body">
-          {{ config.popup_notice }}
-        </div>
-        <div class="popup-notice-footer">
-          <button class="btn-glow" @click="closePopupNotice">我知道了</button>
-        </div>
-      </div>
-    </div>
 
     <main v-show="!setupRequired">
       <transition name="page-fade" mode="out-in">
@@ -293,13 +255,13 @@
              <button class="btn-back" @click="navigate('products')">← 返回商店</button>
             <div class="detail">
                 <div class="detail-media-area">
-                <div class="detail-img">
+                <div class="detail-img" @mouseenter="pauseAutoSlide" @mouseleave="resumeAutoSlide">
                   <template v-if="detailMediaList.length>0">
                     <div style="position:relative;width:100%;height:100%">
-                      <img v-if="detailMediaList[detailMediaIdx]&&!isVideoUrl(detailMediaList[detailMediaIdx])" :key="'img-'+detailMediaIdx" :src="detailMediaList[detailMediaIdx]" :alt="detail.product.name" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0;transition:opacity .5s" @error="$event.target.style.display='none'" />
-                      <img v-if="detailMediaList[detailMediaIdx]&&isVideoUrl(detailMediaList[detailMediaIdx])&&getVideoThumb(detailMediaList[detailMediaIdx])" :key="'thumb-'+detailMediaIdx" :src="getVideoThumb(detailMediaList[detailMediaIdx])" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0;transition:opacity .5s;z-index:0" />
-                      <div v-if="detailMediaList[detailMediaIdx]&&isVideoUrl(detailMediaList[detailMediaIdx])&&!getVideoThumb(detailMediaList[detailMediaIdx])" :key="'ph-'+detailMediaIdx" style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;position:absolute;top:0;left:0;display:flex;align-items:center;justify-content:center"><i class="fas fa-video" style="color:rgba(255,255,255,0.2);font-size:48px"></i></div>
-                      <video ref="detailVideoRef" preload="auto" :src="isVideoUrl(detailMediaList[detailMediaIdx]) ? detailMediaList[detailMediaIdx] : ''" :style="{display:detailMediaList[detailMediaIdx]&&isVideoUrl(detailMediaList[detailMediaIdx])?'block':'none'}" muted controls controlsList="nodownload noplaybackrate" playsinline disablePictureInPicture @contextmenu.prevent @loadeddata="handleVideoLoaded" @error="Object.assign(failedMedia,{[detailMediaIdx]:true})" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0;z-index:1"></video>
+                      <img v-if="detailMediaList[detailMediaIdx]&&!detailMediaList[detailMediaIdx].includes('.mp4')" :key="'img-'+detailMediaIdx" :src="detailMediaList[detailMediaIdx]" :alt="detail.product.name" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0;transition:opacity .5s" @error="$event.target.style.display='none'" />
+                      <img v-if="detailMediaList[detailMediaIdx]&&detailMediaList[detailMediaIdx].includes('.mp4')&&getVideoThumb(detailMediaList[detailMediaIdx])" :key="'thumb-'+detailMediaIdx" :src="getVideoThumb(detailMediaList[detailMediaIdx])" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0;transition:opacity .5s" />
+                      <div v-if="detailMediaList[detailMediaIdx]&&detailMediaList[detailMediaIdx].includes('.mp4')&&!getVideoThumb(detailMediaList[detailMediaIdx])" :key="'ph-'+detailMediaIdx" style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;position:absolute;top:0;left:0;display:flex;align-items:center;justify-content:center"><i class="fas fa-video" style="color:rgba(255,255,255,0.2);font-size:48px"></i></div>
+                      <video ref="detailVideoRef" :src="detailMediaList[detailMediaIdx]||''" :style="{display:detailMediaList[detailMediaIdx]&&detailMediaList[detailMediaIdx].includes('.mp4')?'block':'none'}" controls muted controlsList="nodownload noplaybackrate" playsinline disablePictureInPicture @contextmenu.prevent @loadeddata="handleVideoLoaded" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;top:0;left:0;z-index:1"></video>
                       <button v-if="detailMediaList.length>1" @click="prevMedia" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.4);color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2" @mouseenter="$event.target.style.background='rgba(0,0,0,0.7)'" @mouseleave="$event.target.style.background='rgba(0,0,0,0.4)'">‹</button>
                       <button v-if="detailMediaList.length>1" @click="nextMedia" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.4);color:#fff;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2" @mouseenter="$event.target.style.background='rgba(0,0,0,0.7)'" @mouseleave="$event.target.style.background='rgba(0,0,0,0.4)'">›</button>
                     </div>
@@ -308,10 +270,10 @@
                   <div v-else class="detail-placeholder">⬡</div>
                 </div>
                 <div v-if="detailMediaList.length>1" style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding:4px 0;justify-content:center">
-                  <div v-for="(m,i) in detailMediaList" :key="i" @click="selectMedia(i)" style="width:56px;height:56px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0;border:2px solid transparent;transition:.2s;background:#1a1a2e" :style="i===detailMediaIdx?'border-color:var(--primary)':'opacity:0.6'">
-                    <img v-if="!isVideoUrl(m)" :src="m" loading="lazy" style="width:100%;height:100%;object-fit:cover" />
+                  <div v-for="(m,i) in detailMediaList" :key="i" @click="selectMedia(i)" style="width:56px;height:56px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0;border:2px solid transparent;transition:.2s" :style="i===detailMediaIdx?'border-color:var(--primary)':'opacity:0.6'">
+                    <img v-if="!m.includes('.mp4')" :src="m" style="width:100%;height:100%;object-fit:cover" />
                     <div v-else-if="getVideoThumb(m)" style="width:100%;height:100%;position:relative">
-                      <img :src="getVideoThumb(m)" loading="lazy" style="width:100%;height:100%;object-fit:cover" />
+                      <img :src="getVideoThumb(m)" style="width:100%;height:100%;object-fit:cover" />
                       <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;background:rgba(0,0,0,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="fas fa-play" style="color:#fff;font-size:7px;margin-left:1px"></i></div>
                     </div>
                     <div v-else style="width:100%;height:100%;background:#333;display:flex;align-items:center;justify-content:center"><i class="fas fa-play" style="color:#fff;font-size:10px"></i></div>
@@ -319,35 +281,20 @@
                 </div>
               </div>
               <div class="detail-info">
+                <h2 class="detail-name">{{ detail.product.name }}</h2>
                 <div class="detail-meta">
                   <span class="tag" :class="detail.product.type" v-if="detail.product.type!=='normal'">{{detail.product.type==='blindbox'?'🎁 盲盒':'⏰ 限时抢购'}}</span>
                   <span class="tag timed-left" v-if="detail.product.type==='timed' && detail.available===false">{{detail.msg}}</span>
-                  <span class="tag" style="background:rgba(255,68,68,0.15);color:#ff4444" v-if="detail.product.is_hot">🔥 热卖</span>
-                  <span class="tag" style="background:rgba(0,255,136,0.15);color:#00ff88" v-if="detail.product.is_new">✨ 新品</span>
-                  <span class="tag" style="background:rgba(255,170,0,0.15);color:#ffaa00" v-if="detail.product.is_seckill">⚡ 秒杀</span>
-                  <span class="tag" style="background:rgba(0,240,255,0.15);color:var(--primary)" v-if="detail.product.is_featured">⭐ 推荐</span>
-                </div>
-                <div class="detail-tags" v-if="detail.product.tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-                  <span v-for="t in detail.product.tags.split(',')" :key="t" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:var(--bg3);color:var(--dim);border:1px solid var(--border)">{{ t.trim() }}</span>
                 </div>
                 <div class="detail-price-box">
-                  <h2 class="detail-name" style="margin-bottom:0.5rem;font-size:1.3rem">{{ detail.product.name }}</h2>
                   <div class="detail-price" v-if="detail.product.is_discount_active">
                     <s>¥{{ detail.product.price.toFixed(2) }}</s>
                     <span>¥{{ detail.product.display_price.toFixed(2) }}</span>
                   </div>
                   <div class="detail-price" v-else>¥{{ detail.product.price.toFixed(2) }}</div>
                   <div class="detail-stock">库存 {{ detail.card_key_count }} · 已售 {{ detail.product.total_sold }}</div>
-                  <div v-if="detail.product.description" style="margin-top:0.8rem;padding-top:0.8rem;border-top:1px solid var(--border);font-size:0.85rem;color:var(--text-dim);line-height:1.6">{{ detail.product.description }}</div>
                 </div>
-                <div v-if="detail.product.buy_notice" class="detail-notice" style="margin-top:1rem;padding:1rem;background:rgba(255,170,0,0.05);border-radius:8px;border:1px solid rgba(255,170,0,0.15)">
-                  <h4 style="font-size:0.85rem;color:var(--warning);margin-bottom:0.5rem"><i class="fas fa-exclamation-triangle"></i> 购买须知</h4>
-                  <p style="font-size:0.82rem;color:var(--text);line-height:1.6;white-space:pre-wrap">{{ detail.product.buy_notice }}</p>
-                </div>
-                <div v-if="detail.product.after_sale_notice" class="detail-after-sale" style="margin-top:1rem;padding:1rem;background:rgba(0,240,255,0.05);border-radius:8px;border:1px solid rgba(0,240,255,0.15)">
-                  <h4 style="font-size:0.85rem;color:var(--primary);margin-bottom:0.5rem"><i class="fas fa-shield-alt"></i> 售后说明</h4>
-                  <p style="font-size:0.82rem;color:var(--text);line-height:1.6;white-space:pre-wrap">{{ detail.product.after_sale_notice }}</p>
-                </div>
+                <div class="detail-desc" v-if="detail.product.description">{{ detail.product.description }}</div>
                 <div class="pool-list" v-if="detail.pool?.length">
                   <h4>奖池配置</h4>
                   <div v-for="e in detail.pool" :key="e.id" class="pool-entry">
@@ -359,36 +306,21 @@
                     <span class="detail-qty-label">数量</span>
                     <div class="qty-control">
                       <button class="qty-btn" @click="buyQty = Math.max(1, buyQty - 1)" :disabled="buyQty <= 1">−</button>
-                      <input v-model.number="buyQty" type="number" min="1" :max="getMaxBuyQty()" class="qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= getMaxBuyQty()) ? buyQty : 1" />
-                      <button class="qty-btn" @click="buyQty = Math.min(getMaxBuyQty(), buyQty + 1)" :disabled="buyQty >= getMaxBuyQty()">+</button>
+                      <input v-model.number="buyQty" type="number" min="1" :max="detail.card_key_count || 1000" class="qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= (detail.card_key_count || 1000)) ? buyQty : 1" />
+                      <button class="qty-btn" @click="buyQty = Math.min(detail.card_key_count || 1000, buyQty + 1)" :disabled="buyQty >= (detail.card_key_count || 1000)">+</button>
                     </div>
                   </div>
-                  <p v-if="detail.product.per_user_limit > 0" style="font-size:0.75rem;color:var(--dim);margin-top:4px">每人限购 {{ detail.product.per_user_limit }} 件</p>
-                  <p v-if="detail.product.max_buy_limit > 0 && detail.product.max_buy_limit < detail.card_key_count" style="font-size:0.75rem;color:var(--dim);margin-top:2px">全场限购 {{ detail.product.max_buy_limit }} 件</p>
                   <button class="btn-glow detail-buy-btn" @click="checkout(detail.product)" :disabled="!detail.available || detail.card_key_count<=0">
                     <i class="fas fa-shopping-cart"></i> 立即购买
                   </button>
                 </div>
-                <div v-if="lastOrder?.card_keys?.length && detail.product.delivery_type==='card_key'" class="card-keys-delivered">
+                <div v-if="lastOrder?.card_keys?.length" class="card-keys-delivered">
                   <h4>✅ 卡密已发放</h4>
                   <div v-for="k in lastOrder.card_keys" :key="k.id" class="card-key-item">
                     <code>{{ k.key }}</code><button class="btn-copy" @click="copy(k.key)">复制</button>
                   </div>
                 </div>
-                <div v-if="detail.product.delivery_type==='file' && lastOrder" class="card-keys-delivered" style="background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.15);border-radius:8px;padding:1rem">
-                  <h4 style="color:var(--primary);margin-bottom:0.5rem">📥 文件已发货</h4>
-                  <p style="font-size:0.85rem;color:var(--warning);margin-bottom:0.8rem"><i class="fas fa-exclamation-triangle"></i> 请尽快下载，以免商品下架后无法获取</p>
-                  <div v-if="detail.product.files_list && JSON.parse(detail.product.files_list || '[]').length">
-                    <div v-for="(f,idx) in JSON.parse(detail.product.files_list || '[]')" :key="idx" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
-                      <a :href="f.url" target="_blank" class="btn btn-p btn-sm" style="text-decoration:none"><i class="fas fa-download"></i> 下载文件 {{ idx+1 }}</a>
-                      <span style="font-size:0.8rem;color:var(--text-dim)">{{ f.name }}</span>
-                    </div>
-                  </div>
-                  <div v-else>
-                    <p style="font-size:0.85rem;color:var(--text-dim)">请前往"我的订单"查看下载链接</p>
-                  </div>
-                </div>
-                <div class="reviews-section" v-if="detail.product.allow_comments !== false && reviews.length">
+                <div class="reviews-section" v-if="reviews.length">
                   <h4>评价</h4>
                   <div v-for="r in reviews" :key="r.ID" class="review-item">
                     <span class="stars">{{ '⭐'.repeat(r.Rating) }}</span>
@@ -577,14 +509,11 @@
                     <span class="price">¥{{ o.final_price.toFixed(2) }}</span>
                     <span style="color:var(--text-dim);font-size:0.8rem">{{ formatDate(o.created_at) }}</span>
                   </div>
-                  <div v-if="o.card_keys?.length && o.delivery_type==='card_key'" class="uc-order-keys">
+                  <div v-if="o.card_keys?.length" class="uc-order-keys">
                     <div v-for="k in o.card_keys" :key="k.id" class="uc-key-row">
-                      <code>{{ k.key }}</code>
-                      <button class="btn-copy" @click="copy(k.key)">复制</button>
+                      <code>{{ k.Key }}</code>
+                      <button class="btn-copy" @click="copy(k.Key)">复制</button>
                     </div>
-                  </div>
-                  <div v-if="o.delivery_type==='file' && o.status==='completed'" class="uc-order-keys" style="background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.15);border-radius:6px;padding:0.5rem">
-                    <span style="font-size:0.85rem;color:var(--primary)">📥 文件已发货 · <span style="color:var(--warning)">请尽快下载</span></span>
                   </div>
                 </div>
               </div>
@@ -611,14 +540,11 @@
                       {{ {balance:'余额',alipay:'支付宝',wxpay:'微信',qqpay:'QQ钱包',mazf:'码支付',yishoumi:'易收米',usdt:'USDT'}[o.payment_method]||o.payment_method }}
                     </span>
                   </div>
-                  <div v-if="o.card_keys?.length && o.delivery_type==='card_key'" class="uc-order-keys">
+                  <div v-if="o.card_keys?.length" class="uc-order-keys">
                     <div v-for="k in o.card_keys" :key="k.id" class="uc-key-row">
-                      <code>{{ k.key }}</code>
-                      <button class="btn-copy" @click="copy(k.key)">复制</button>
+                      <code>{{ k.Key }}</code>
+                      <button class="btn-copy" @click="copy(k.Key)">复制</button>
                     </div>
-                  </div>
-                  <div v-if="o.delivery_type==='file' && o.status==='completed'" class="uc-order-keys" style="background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.15);border-radius:6px;padding:0.5rem">
-                    <span style="font-size:0.85rem;color:var(--primary)">📥 文件已发货 · <span style="color:var(--warning)">请尽快下载</span></span>
                   </div>
                   <div class="uc-order-time">{{ formatDate(o.created_at) }}</div>
                 </div>
@@ -724,8 +650,7 @@
                 </div>
                 <p v-if="authErr" class="auth-error">{{ authErr }}</p>
                 <button type="submit" class="btn-glow" style="width:100%">{{ isReg ? '注册' : '登录' }}</button>
-                <a v-if="config.allow_register !== false" href="#" class="auth-toggle" @click.prevent="isReg=!isReg">{{ isReg ? '已有账号？去登录' : '没有账号？去注册' }}</a>
-                <p v-if="config.allow_register === false && !isReg" style="text-align:center;color:var(--text-dim);font-size:0.85rem;margin-top:0.5rem">暂未开放注册</p>
+                <a href="#" class="auth-toggle" @click.prevent="isReg=!isReg">{{ isReg ? '已有账号？去登录' : '没有账号？去注册' }}</a>
               </form>
             </div>
           </div>
@@ -735,7 +660,7 @@
     </main>
 
     <!-- 客服弹窗 -->
-    <div class="modal-overlay" v-if="showService" >
+    <div class="modal-overlay" v-if="showService" @click.self="showService=false">
       <div class="service-modal">
         <div class="service-header">
           <h3><i class="fas fa-headset"></i> 联系客服</h3>
@@ -782,7 +707,7 @@
     </button>
 
     <!-- 支付弹窗 -->
-    <div class="modal-overlay" v-if="showPayModal" >
+    <div class="modal-overlay" v-if="showPayModal" @click.self="showPayModal=false">
       <div class="pay-modal">
         <div class="pay-header">
           <h3><i class="fas fa-credit-card"></i> 确认订单</h3>
@@ -862,7 +787,7 @@
         <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">{{ t.message }}</div>
       </transition-group>
     </div>
-    <div v-if="showConfirmModal" class="confirm-overlay" >
+    <div v-if="showConfirmModal" class="confirm-overlay" @click.self="confirmResolveFn(false)">
       <div class="confirm-dialog">
         <div class="confirm-header"><h3><i class="fas fa-exclamation-triangle" style="color:var(--neon-red)"></i> 确认操作</h3></div>
         <div class="confirm-body"><p>{{ confirmMessage }}</p></div>
@@ -875,7 +800,7 @@
   </div>
 
   <script src="/static/js/vue.min.js" defer></script>
-  <script src="/static/js/api.js?v=202607090300" defer></script>
-  <script src="/static/js/app.js?v=202607090300" defer></script>
+  <script src="/static/js/api.js?v=202606160100" defer></script>
+  <script src="/static/js/app.js?v=202606160100" defer></script>
 </body>
 </html>

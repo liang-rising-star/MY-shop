@@ -35,7 +35,6 @@ const app = createApp({
     const detailMediaIdx = ref(0)
     const detailVideoRef = ref(null)
     const videoThumbnails = ref({})
-    const failedMedia = ref({})
     const lastOrder = ref(null)
     const search = ref('')
     const catFilter = ref('')
@@ -74,17 +73,8 @@ const app = createApp({
       qrcode1_title: '',
       qrcode1_url: '',
       qrcode2_title: '',
-      qrcode2_url: '',
-      notice: '',
-      popup_notice: '',
-      keywords: '',
-      description: '',
-      shop_closed: false,
-      maintenance_mode: false,
-      closed_message: '',
-      logo_rotate: false
+      qrcode2_url: ''
     })
-    const showPopupNotice = ref(false)
     const showService = ref(false)
     const editingProduct = ref(null)
     const prodForm = ref({ Name:'',Description:'',Price:0,CategoryID:0,Type:'normal',ImageURL:'' })
@@ -134,7 +124,7 @@ const app = createApp({
     })
     const ucTabs = [
       {k:'overview', l:'概览'},
-      {k:'orders', l:'我的订单'},
+      {k:'orders', l:'我的商品'},
       {k:'assets', l:'充值'},
       {k:'coupons', l:'优惠券'},
       {k:'profile', l:'资料'},
@@ -156,11 +146,6 @@ const app = createApp({
       history.pushState(null, '', path)
     }
 
-    function closePopupNotice() {
-      showPopupNotice.value = false
-      try { sessionStorage.setItem('popup_notice_closed', '1') } catch(e) {}
-    }
-
     function initRoute() {
       const path = window.location.pathname
       const parts = path.split('/').filter(Boolean)
@@ -169,46 +154,25 @@ const app = createApp({
       page.value = route
       if (route === 'detail' && parts[1]) {
         const pid = parseInt(parts[1])
-        if (pid) {
-          const loadDetail = (d) => {
+        if (pid && !detail.value) {
+          API.getProduct(pid).then(d => {
             detail.value = d
-            setupDetailMedia(d.product, d.product.id)
-          }
-          if (!detail.value) {
-            API.getProduct(pid).then(d => loadDetail(d)).catch(e => console.error('initRoute error:', e))
-          } else {
-            setupDetailMedia(detail.value.product, pid)
-          }
+            const imgs = d.product?.images ? d.product.images.split(',').filter(u=>u.trim()) : []
+            if (d.product?.video_url) {
+              imgs.push(d.product.video_url)
+              if (!videoThumbnails.value[d.product.video_url]) {
+                fetch('/api/admin/products/' + d.product.id + '/thumbnail').then(r=>r.json()).then(data=>{
+                  if (data.thumbnail) { videoThumbnails.value[d.product.video_url] = data.thumbnail; }
+                }).catch(()=>{});
+              }
+            }
+            detailMediaList.value = [...imgs]
+            detailMediaIdx.value = 0
+            loadReviews(pid)
+            nextTick(() => { playCurrentVideo(); startAutoSlide(); })
+          }).catch(e => console.error('initRoute error:', e))
         }
       }
-    }
-    function setupDetailMedia(product, pid) {
-      if (!product) return
-      stopAutoSlide()
-      stopVideo()
-      let imgs = product.images ? product.images.split(',').filter(u=>u.trim()) : []
-      if (product.video_url && !imgs.some(u => isVideoUrl(u))) {
-        const vids = product.video_url.split(',').filter(u=>u.trim())
-        vids.forEach(url => imgs.push(url))
-      }
-      if (product.video_thumbnails) {
-        const thumbs = product.video_thumbnails.split(',')
-        const vids = (product.video_url || '').split(',')
-        vids.forEach((url, i) => { if (url && url.trim() && thumbs[i] && thumbs[i].trim()) { videoThumbnails.value[url.trim()] = thumbs[i].trim(); } })
-      }
-      const missing = imgs.filter(url => isVideoUrl(url) && !videoThumbnails.value[url])
-      if (missing.length > 0) {
-        const promises = missing.map(url =>
-          fetch('/api/admin/products/' + pid + '/thumbnail?video_url=' + encodeURIComponent(url)).then(r=>r.json()).then(data=>{
-            if (data.thumbnail) { videoThumbnails.value[url] = data.thumbnail; }
-          }).catch(()=>{})
-        )
-        Promise.all(promises)
-      }
-      detailMediaList.value = [...imgs]
-      detailMediaIdx.value = 0
-      preloadMedia(imgs)
-      nextTick(() => { startAutoSlide(); })
     }
 
     const filtered = computed(() => {
@@ -234,45 +198,17 @@ const timedProducts = computed(() => eventProducts.value)
       } catch(e) {}
     }
 
-    function parseConfigValue(v) {
-      if (v === 'True') return true
-      if (v === 'False') return false
-      if (v === 'true') return true
-      if (v === 'false') return false
-      return v
-    }
-
     async function loadConfig() {
       try {
         const d = await API.request('GET', '/api/site/settings')
         if (d.settings) {
-          const flat = {}
-          for (const [k, v] of Object.entries(d.settings)) {
-            const key = k.startsWith('config_') ? k.slice(7) : k
-            flat[key] = parseConfigValue(v)
-          }
-          config.value = { ...config.value, ...flat }
+          config.value = { ...config.value, ...d.settings }
           // 更新页面标题
-          if (flat.title) {
-            document.title = `${flat.shop_name || 'MY-Shop'} - ${flat.title}`
-          }
-          // 显示公告弹窗（仅首次访问且未关闭过）
-          if (flat.popup_notice && !sessionStorage.getItem('popup_notice_closed')) {
-            showPopupNotice.value = true
+          if (d.settings.title) {
+            document.title = `${d.settings.shop_name || 'MY-Shop'} - ${d.settings.title}`
           }
         }
       } catch(e) {}
-    }
-
-    function getMaxBuyQty() {
-      if (!detail.value) return 1000
-      const stock = detail.value.card_key_count || 1000
-      const perUserLimit = detail.value.product?.per_user_limit || 0
-      const maxBuyLimit = detail.value.product?.max_buy_limit || 0
-      let max = stock
-      if (perUserLimit > 0) max = Math.min(max, perUserLimit)
-      if (maxBuyLimit > 0) max = Math.min(max, maxBuyLimit)
-      return Math.max(1, max)
     }
 
     function countdown(timeStr) {
@@ -349,16 +285,13 @@ const timedProducts = computed(() => eventProducts.value)
         token.value=d.token; API.token=d.token; try { localStorage.setItem('token',d.token) } catch(e) {}
         authUser.value=authPass.value=captchaCode.value=''; toast('登录成功')
         loadProfile(); loadOrders(); loadMyCoupons(); loadCaptcha()
-        const params=new URLSearchParams(window.location.search)
-        const redirect=params.get('redirect')
-        if(redirect){ window.location.href=decodeURIComponent(redirect) }
-        else{ navigate('home') }
-      } catch(e){ authErr.value=e.message; captchaCode.value=''; loadCaptcha() }
+        navigate('home')
+      } catch(e){ authErr.value=e.message; loadCaptcha() }
     }
     async function doReg() {
       authErr.value=''
       if (!captchaCode.value) { authErr.value='请输入验证码'; return }
-      try { await API.register(authUser.value, authPass.value, authEmail.value, captchaKey.value, captchaCode.value); toast('注册成功，请登录'); isReg.value=false; loadCaptcha() } catch(e){ authErr.value=e.message; captchaCode.value=''; loadCaptcha() }
+      try { await API.register(authUser.value, authPass.value, authEmail.value, captchaKey.value, captchaCode.value); toast('注册成功，请登录'); isReg.value=false; loadCaptcha() } catch(e){ authErr.value=e.message; loadCaptcha() }
     }
     function logout() {
       token.value=null; API.token=null; try { localStorage.removeItem('token') } catch(e) {}
@@ -373,64 +306,49 @@ const timedProducts = computed(() => eventProducts.value)
       detail.value=null; lastOrder.value=null; buyQty.value=1; reviews.value=[]; detailMediaList.value=[]; detailMediaIdx.value=0
       try { 
         const d=await API.getProduct(pid); 
-        detail.value=d;
-        setupDetailMedia(d.product, pid)
+        detail.value=d; 
+        const imgs = d.product?.images ? d.product.images.split(',').filter(u=>u.trim()) : [];
+        if (d.product?.video_url) {
+          imgs.push(d.product.video_url)
+          if (!videoThumbnails.value[d.product.video_url]) {
+            fetch('/api/admin/products/' + d.product.id + '/thumbnail').then(r=>r.json()).then(data=>{
+              if (data.thumbnail) { videoThumbnails.value[d.product.video_url] = data.thumbnail; }
+            }).catch(()=>{});
+          }
+        }
+        detailMediaList.value = imgs;
         loadReviews(pid)
+        nextTick(() => {
+          playCurrentVideo();
+          startAutoSlide();
+        });
       } catch(e){ toast(e.message,'error') }
       navigate('detail', pid)
     }
 
-    function isVideoUrl(url) {
-      return url && (url.includes('.mp4') || url.includes('.webm') || url.includes('.mov'));
-    }
-    function preloadMedia(list) {
-      list.forEach(url => {
-        if (!url || !url.trim()) return;
-        if (isVideoUrl(url)) {
-          const v = document.createElement('video');
-          v.src = url;
-          v.preload = 'auto';
-          v.muted = true;
-          v.style.display = 'none';
-          document.body.appendChild(v);
-          v.onloadeddata = () => { document.body.removeChild(v); };
-          setTimeout(() => { if (v.parentNode) document.body.removeChild(v); }, 30000);
-          const thumb = videoThumbnails.value[url];
-          if (thumb) {
-            const img = new Image();
-            img.src = thumb;
-          }
-        } else {
-          const img = new Image();
-          img.src = url;
-        }
-      });
-    }
     let autoSlideTimer = null
-    let userClicked = false
-    function handleFirstInteraction() {
-      userClicked = true;
-      const vid = detailVideoRef.value;
-      if (vid && vid.tagName === 'VIDEO' && !vid.paused) { vid.muted = false; }
-      document.removeEventListener('click', handleFirstInteraction);
-    }
     function startAutoSlide() {
       stopAutoSlide();
       if (detailMediaList.value.length <= 1) return;
       const cur = detailMediaList.value[detailMediaIdx.value] || '';
-      if (isVideoUrl(cur)) {
+      if (cur.includes('.mp4') || cur.includes('.webm') || cur.includes('.mov')) {
+        // 视频等播完再切
         setTimeout(() => {
           const vid = detailVideoRef.value;
           if (vid && vid.tagName === 'VIDEO') {
-            vid.muted = !userClicked;
-            vid.onended = () => {
-              detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
-            };
+            vid.onended = () => { nextMedia(); };
           }
-        }, 500);
+        }, 200);
       } else {
+        // 图片5秒切换
         autoSlideTimer = setInterval(() => {
-          detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
+          const next = detailMediaList.value[(detailMediaIdx.value + 1) % detailMediaList.value.length] || '';
+          if (next.includes('.mp4') || next.includes('.webm') || next.includes('.mov')) {
+            stopAutoSlide();
+            nextMedia();
+          } else {
+            detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length;
+          }
         }, 5000);
       }
     }
@@ -443,19 +361,16 @@ const timedProducts = computed(() => eventProducts.value)
     function resumeAutoSlide() { startAutoSlide(); }
     function prevMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value - 1 + detailMediaList.value.length) % detailMediaList.value.length; }
     function nextMedia() { stopAutoSlide(); stopVideo(); detailMediaIdx.value = (detailMediaIdx.value + 1) % detailMediaList.value.length; }
-    function selectMedia(i) {
-      stopAutoSlide(); stopVideo();
-      detailMediaIdx.value = i;
-      const url = detailMediaList.value[i] || '';
-      if (isVideoUrl(url)) {
-        nextTick(() => {
-          const vid = detailVideoRef.value;
-          if (vid) { vid.src = url; vid.muted = true; vid.play().then(() => { vid.muted = false; }).catch(() => {}); }
-        });
-      }
-      nextTick(() => { startAutoSlide(); });
-    }
+    function selectMedia(i) { stopAutoSlide(); stopVideo(); detailMediaIdx.value = i; }
     function getVideoThumb(url) { return videoThumbnails.value[url] || ''; }
+    function playCurrentVideo() {
+      const vid = detailVideoRef.value;
+      if (!vid || vid.tagName !== 'VIDEO') return;
+      const url = detailMediaList.value[detailMediaIdx.value] || '';
+      if (!url.includes('.mp4')) return;
+      vid.muted = true;
+      vid.play().then(()=>{ vid.muted = false; startAutoSlide(); }).catch(()=>{});
+    }
     function stopVideo() {
       const vid = detailVideoRef.value;
       if (vid && vid.tagName === 'VIDEO') { vid.pause(); vid.currentTime = 0; vid.onended = null; }
@@ -463,23 +378,28 @@ const timedProducts = computed(() => eventProducts.value)
     function handleVideoLoaded() {
       const vid = detailVideoRef.value;
       if (!vid || vid.tagName !== 'VIDEO') return;
-      vid.muted = true;
-      vid.play().then(() => { if (userClicked) vid.muted = false; }).catch(() => {});
+      if (detailMediaList.value[detailMediaIdx.value]?.includes('.mp4')) {
+        vid.muted = true;
+        vid.play().then(()=>{ vid.muted = false; startAutoSlide(); }).catch(()=>{});
+      }
     }
 
     const currentVideoSrc = computed(() => {
       const url = detailMediaList.value[detailMediaIdx.value] || '';
-      return isVideoUrl(url) ? url : '';
+      return (url.includes('.mp4') || url.includes('.webm') || url.includes('.mov')) ? url : '';
     })
 
     watch(currentVideoSrc, (newSrc) => {
       if (!newSrc) return;
       nextTick(() => {
         const vid = detailVideoRef.value;
-        if (vid && vid.tagName === 'VIDEO') {
-          vid.muted = true;
-          vid.play().then(() => { if (userClicked) vid.muted = false; }).catch(() => {});
-        }
+        if (!vid || vid.tagName !== 'VIDEO') return;
+        vid.muted = true;
+        const tryPlay = () => {
+          vid.play().then(()=>{ vid.muted = false; startAutoSlide(); }).catch(()=>{});
+        };
+        if (vid.readyState >= 2) { tryPlay(); }
+        else { vid.addEventListener('loadeddata', tryPlay, { once: true }); }
       });
     })
     async function checkout(product) {
@@ -581,9 +501,6 @@ const timedProducts = computed(() => eventProducts.value)
             await API.payOrder(order.id, 'balance')
             showPayModal.value = false
             toast('支付成功！')
-            if (order.delivery_type === 'file') {
-              setTimeout(() => toast('📥 文件已发货，请尽快下载以免商品下架'), 1000)
-            }
             lastOrder.value = order
             loadOrders(); loadProducts(); loadProfile(); loadMyCoupons()
           } catch(e) {
@@ -768,22 +685,34 @@ const timedProducts = computed(() => eventProducts.value)
       if (p === 'admin') { loadAllOrders(); loadCoupons(); loadCategories(); loadProducts(); loadUsers() }
     })
 
+    watch(detail, (d) => {
+      if (d && d.product) {
+        const imgs = d.product.images ? d.product.images.split(',').filter(u=>u.trim()) : []
+        if (d.product.video_url) {
+          imgs.push(d.product.video_url)
+          // 为视频生成缩略图
+          if (!videoThumbnails.value[d.product.video_url]) {
+            fetch('/api/admin/products/' + d.product.id + '/thumbnail').then(r=>r.json()).then(data=>{
+              if (data.thumbnail) { videoThumbnails.value[d.product.video_url] = data.thumbnail; }
+            }).catch(()=>{});
+          }
+        }
+        detailMediaList.value = [...imgs]
+        detailMediaIdx.value = 0
+        nextTick(() => { playCurrentVideo(); startAutoSlide(); })
+      }
+    })
+
     watch(detailMediaIdx, () => {
       stopAutoSlide();
-      nextTick(() => { startAutoSlide(); });
+      nextTick(() => { playCurrentVideo(); });
     })
 
     watch(token, () => { if(token.value){ loadProfile(); loadOrders(); loadMyCoupons() } })
-    watch(() => config.value.popup_notice, (val) => {
-      if (val && !showPopupNotice.value && !sessionStorage.getItem('popup_notice_closed')) {
-        showPopupNotice.value = true
-      }
-    })
 
     window.addEventListener('popstate', initRoute)
 
     onMounted(() => {
-      document.addEventListener('click', handleFirstInteraction, { once: true });
       initRoute()
       if (page.value !== 'detail') {
         checkSetup()
@@ -877,7 +806,7 @@ const timedProducts = computed(() => eventProducts.value)
       page, scrolled, menuOpen, isReg, token, toasts,
       setupRequired, setupUser, setupPass, setupEmail, setupErr, adminView,
       products, categories, orders, allOrders, coupons, myCoupons, cardKeys, reviews,
-      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, failedMedia, getVideoThumb, handleVideoLoaded, currentVideoSrc, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, isVideoUrl, lastOrder, search, catFilter, typeFilter,
+      user, detail, detailMediaList, detailMediaIdx, detailVideoRef, videoThumbnails, getVideoThumb, handleVideoLoaded, currentVideoSrc, prevMedia, nextMedia, selectMedia, pauseAutoSlide, resumeAutoSlide, lastOrder, search, catFilter, typeFilter,
       authUser, authPass, authEmail, authErr, captchaKey, captchaImage, captchaCode,
       adminTab, adminMenu, showProductForm, editingProduct, prodForm,
       catForm, couponForm, keysInput, keyProductID, claimCode, buyQty,
@@ -886,7 +815,7 @@ const timedProducts = computed(() => eventProducts.value)
       loadUC, loadUCOrders, updateProfile, changePw, doRecharge, rechargeAmt, rechargePayMethod, availablePayMethods, loadPayMethods, doUpgrade, showUpgrade, upgradeAmt,
       levelRequirements, nextLevel,
       users, adminMenu, showCouponForm, showCatForm, settings, saveSettings,
-      navigate, initSetup, toggleAdminView, getMaxBuyQty,
+      navigate, initSetup, toggleAdminView,
       toast, copy, statusText, formatDate,
       loadProducts, loadCategories, loadOrders, loadAllOrders, loadCoupons, loadConfig,
       loadProfile, loadMyCoupons, loadCardKeys, loadReviews, loadUsers, loadCaptcha, loadEvents, loadRechargeRecords, loadPayMethods,
@@ -904,8 +833,7 @@ const timedProducts = computed(() => eventProducts.value)
       showPayModal, payPreview, selectedPayMethod, selectedCouponId,
       promoCodeInput, promoMsg, promoMsgType, paySubmitting,
       selectCoupon, applyPromoCode, confirmPay,
-      showConfirmModal, confirmMessage, confirmResolveFn,
-      showPopupNotice, closePopupNotice
+      showConfirmModal, confirmMessage, confirmResolveFn
     }
   }
 })

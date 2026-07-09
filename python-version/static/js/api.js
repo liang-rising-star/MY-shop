@@ -6,15 +6,12 @@ const API = {
   async request(method, path, body) {
     const headers = { 'Content-Type': 'application/json' }
     if (this.token) headers['Authorization'] = 'Bearer ' + this.token
-    const opts = { method, headers, cache: 'no-store' }
-    if (body) opts.body = JSON.stringify(body)
-    const res = await fetch(path, opts)
+    const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined })
     const data = await res.json()
     if (!res.ok) {
       if (res.status === 401) {
         try { localStorage.removeItem('token') } catch(e) {}
-        const redirect = encodeURIComponent(window.location.pathname + window.location.search)
-        window.location.href = '/login?redirect=' + redirect
+        window.location.href = '/login'
         throw new Error('登录已失效，请重新登录')
       }
       const err = new Error(data.error || '请求失败')
@@ -26,7 +23,7 @@ const API = {
   },
 
   // Captcha
-  getCaptcha: () => API.request('GET', '/api/captcha?t=' + Date.now()),
+  getCaptcha: () => API.request('GET', '/api/captcha'),
 
   // Auth
   register: (u, p, e, captchaKey, captchaCode) => API.request('POST', '/api/register', { username: u, password: p, email: e, captcha_key: captchaKey, captcha_code: captchaCode }),

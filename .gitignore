@@ -62,3 +62,6 @@ _test_logs.py
 
 # Chinese Files
 清单.txt
+
+#AI Agent memory
+.mimocode/
