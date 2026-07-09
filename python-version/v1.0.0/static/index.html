@@ -338,11 +338,7 @@
                   </div>
                   <div class="detail-price" v-else>¥{{ detail.product.price.toFixed(2) }}</div>
                   <div class="detail-stock">库存 {{ detail.card_key_count }} · 已售 {{ detail.product.total_sold }}</div>
-                </div>
-                <div class="detail-desc" v-if="detail.product.description">{{ detail.product.description }}</div>
-                <div v-if="detail.product.content" class="detail-content" style="margin-top:1rem;padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
-                  <h4 style="font-size:0.85rem;color:var(--primary);margin-bottom:0.5rem">商品详情</h4>
-                  <div v-html="detail.product.content" style="font-size:0.85rem;color:var(--text);line-height:1.6;word-break:break-word"></div>
+                  <div v-if="detail.product.description" style="margin-top:0.8rem;padding-top:0.8rem;border-top:1px solid var(--border);font-size:0.85rem;color:var(--text-dim);line-height:1.6">{{ detail.product.description }}</div>
                 </div>
                 <div v-if="detail.product.buy_notice" class="detail-notice" style="margin-top:1rem;padding:1rem;background:rgba(255,170,0,0.05);border-radius:8px;border:1px solid rgba(255,170,0,0.15)">
                   <h4 style="font-size:0.85rem;color:var(--warning);margin-bottom:0.5rem"><i class="fas fa-exclamation-triangle"></i> 购买须知</h4>

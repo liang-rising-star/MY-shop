@@ -1224,8 +1224,7 @@ input:checked + .slider:before{transform:translateX(20px)}
           <div class="fg"><label>商品名称 *</label><input v-model="productForm.name" placeholder="输入商品名称" /></div>
           <div class="fg"><label>商品价格 * <span v-if="productForm.price!==undefined&&productForm.price!==null&&productForm.price!==''&&isNaN(Number(productForm.price))" style="color:var(--danger);font-size:0.75rem">请输入数字</span></label><input v-model="productForm.price" type="number" step="0.01" min="0" placeholder="0.00" /></div>
         </div>
-        <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">描述</label><textarea v-model="productForm.description" placeholder="输入商品描述..." style="min-height:80px"></textarea></div>
-        <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">长描述</label><textarea v-model="productForm.content" placeholder="支持HTML富文本内容..." style="min-height:120px"></textarea></div>
+        <div style="margin-top:1rem"><label style="display:block;font-size:0.78rem;color:var(--dim);margin-bottom:0.25rem">商品描述</label><textarea v-model="productForm.description" placeholder="输入商品描述..." style="min-height:80px"></textarea></div>
       </div>
       
       <div class="form-section">

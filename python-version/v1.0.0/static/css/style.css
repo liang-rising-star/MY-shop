@@ -599,7 +599,13 @@ select.input-neon { cursor: pointer; }
   align-items: start;
 }
 .detail-media-area {
-  width: 632px;
+  min-width: 0;
+}
+.detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
 }
 .detail-img {
   height: 420px;
@@ -1514,3 +1520,11 @@ textarea.input-neon { min-height: 100px; resize: vertical; }
 .confirm-body{padding:1.5rem;font-size:0.95rem;color:var(--text)}
 .confirm-body p{margin:0;line-height:1.6}
 .confirm-footer{display:flex;justify-content:flex-end;gap:0.8rem;padding:1rem 1.5rem;border-top:1px solid var(--glass-border)}
+
+/* ===== Detail Responsive ===== */
+@media(max-width:768px){
+  .detail{grid-template-columns:1fr;gap:1.5rem}
+  .detail-img{height:300px}
+  .detail-name{font-size:1.3rem}
+  .detail-price{font-size:1.4rem}
+}
