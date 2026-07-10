@@ -363,8 +363,8 @@ input:checked + .slider:before{transform:translateX(20px)}
           <td style="text-align:left">
             <div class="stock-display">
               <span class="stock-number" :class="getStockClass(p)">{{ p.available_stock||0 }}</span>
-              <span class="stock-separator">/</span>
-              <span class="stock-total">{{ p.total_stock||0 }}</span>
+              <span class="stock-separator" v-if="p.total_stock>0">/</span>
+              <span class="stock-total" v-if="p.total_stock>0">{{ p.total_stock }}</span>
             </div>
           </td>
           <td><span style="color:var(--warning);font-weight:600">{{ p.total_sold||0 }}</span></td>
@@ -1424,8 +1424,8 @@ input:checked + .slider:before{transform:translateX(20px)}
               </div>
               <div class="label">剩余库存</div>
             </div>
-            <div class="restock-stat">
-              <div class="num">{{ restockProduct?.total_stock||0 }}</div>
+            <div class="restock-stat" v-if="restockProduct?.total_stock>0">
+              <div class="num">{{ restockProduct?.total_stock }}</div>
               <div class="label">总库存</div>
             </div>
           </div>
