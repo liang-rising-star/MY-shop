@@ -372,7 +372,7 @@ input:checked + .slider:before{transform:translateX(20px)}
           <td><div class="sw" style="display:inline-flex"><div class="toggle" :class="{on:p.is_active!==false}" @click="toggleProductActive(p)" style="cursor:pointer"></div></div></td>
           <td class="ac" style="text-align:left">
             <button class="btn btn-sm btn-a" @click="openProductModal(p)">编辑</button>
-            <button class="btn btn-sm btn-p" @click="openRestockModal(p)"><i class="fas fa-plus"></i> 补货</button>
+            <button class="btn btn-sm btn-p" @click="openRestockModal(p)">库存设置</button>
             <button class="btn btn-sm btn-a" @click="sk(p)">卡密</button>
             <button class="btn btn-sm btn-w" v-if="p.type==='blindbox'" @click="sp(p)">奖池</button>
           </td>
@@ -1398,11 +1398,11 @@ input:checked + .slider:before{transform:translateX(20px)}
   </div>
 </div>
 
-<!-- 补货弹窗 -->
+<!-- 库存设置弹窗 -->
 <div v-if="showRestockModal" class="modal-overlay" >
   <div class="modal" style="max-width:500px">
     <div class="modal-header">
-      <h2><i class="fas fa-boxes"></i> 批量补货</h2>
+      <h2><i class="fas fa-boxes"></i> 库存设置</h2>
       <button class="modal-close" @click="closeRestockModal">&times;</button>
     </div>
     <div class="modal-body">
@@ -1460,7 +1460,7 @@ MNOP-1111-QRST-2222" style="min-height:150px;font-family:monospace;font-size:0.9
                 <strong style="color:var(--success)">{{ getKeyCount() }} 个卡密</strong>
               </div>
               <div style="display:flex;justify-content:space-between">
-                <span>补货后总库存：</span>
+                <span>设置后总库存：</span>
                 <strong style="color:var(--primary)">{{ (restockProduct?.available_stock||0) + getKeyCount() }}</strong>
               </div>
             </div>
@@ -1484,8 +1484,8 @@ MNOP-1111-QRST-2222" style="min-height:150px;font-family:monospace;font-size:0.9
     </div>
     <div class="modal-footer">
       <button class="btn btn-a" @click="closeRestockModal">取消</button>
-      <button class="btn btn-p" @click="confirmRestock" :disabled="(restockProduct?.delivery_type==='card_key'&&!restockKeys.trim())||(restockProduct?.delivery_type==='file'&&!restockStockCount)||(restockProduct?.delivery_type==='manual'&&!restockKeys.trim())">
-        <i class="fas fa-check"></i> {{ restockProduct?.delivery_type==='manual'?'保存发货内容':'确认补货' }}
+      <button class="btn btn-p" @click="confirmRestock" :disabled="(restockProduct?.delivery_type==='card_key'&&!restockKeys.trim())||(restockProduct?.delivery_type==='file'&&restockStockCount==='')||(restockProduct?.delivery_type==='manual'&&!restockKeys.trim())">
+        <i class="fas fa-check"></i> {{ restockProduct?.delivery_type==='manual'?'保存发货内容':'确认设置' }}
       </button>
     </div>
   </div>
@@ -2028,7 +2028,8 @@ function confirmRestock(){
     const data={product_id:restockProduct.value.id,keys:restockKeys.value};
     api.rq('POST','/api/admin/cardkeys/import',data).then(()=>{closeRestockModal();refreshAllStocks();tst(`成功添加 ${keys.length} 个卡密`,'ok')}).catch(e=>tst(e.message,'er'))
   }else if(dt==='file'){
-    if(!restockStockCount.value){tst('请输入调整数量','er');return}
+    if(restockStockCount.value===null||restockStockCount.value===''){tst('请输入调整数量','er');return}
+    if(restockProduct.value.total_stock>0&&restockStockCount.value>restockProduct.value.total_stock){tst('库存数量不能超出总库存('+restockProduct.value.total_stock+'个)','er');return}
     api.rq('POST','/api/admin/products/'+restockProduct.value.id+'/adjust-stock',{count:restockStockCount.value}).then(()=>{closeRestockModal();refreshAllStocks();tst('库存已调整','ok')}).catch(e=>tst(e.message,'er'))
   }else if(dt==='manual'){
     if(!restockKeys.value.trim()){tst('请输入发货内容','er');return}

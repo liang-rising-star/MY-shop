@@ -357,10 +357,10 @@
                 <div class="detail-buy-area">
                   <div class="detail-qty-row">
                     <span class="detail-qty-label">数量</span>
-                    <div class="qty-control">
-                      <button class="qty-btn" @click="buyQty = Math.max(1, buyQty - 1)" :disabled="buyQty <= 1">−</button>
-                      <input v-model.number="buyQty" type="number" min="1" :max="getMaxBuyQty()" class="qty-input" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= getMaxBuyQty()) ? buyQty : 1" />
-                      <button class="qty-btn" @click="buyQty = Math.min(getMaxBuyQty(), buyQty + 1)" :disabled="buyQty >= getMaxBuyQty()">+</button>
+                    <div class="qty-control" :class="{'qty-disabled': detail.card_key_count<=0}">
+                      <button class="qty-btn" @click="buyQty = Math.max(1, buyQty - 1)" :disabled="detail.card_key_count<=0 || buyQty <= 1">−</button>
+                      <input :value="detail.card_key_count<=0 ? 0 : buyQty" @input="buyQty = detail.card_key_count>0 ? $event.target.value : 0" type="number" min="1" :max="getMaxBuyQty()" class="qty-input" :disabled="detail.card_key_count<=0" @blur="buyQty = (Number.isInteger(buyQty) && buyQty >= 1 && buyQty <= getMaxBuyQty()) ? buyQty : 1" />
+                      <button class="qty-btn" @click="buyQty = Math.min(getMaxBuyQty(), buyQty + 1)" :disabled="detail.card_key_count<=0 || buyQty >= getMaxBuyQty()">+</button>
                     </div>
                   </div>
                   <p v-if="detail.product.per_user_limit > 0" style="font-size:0.75rem;color:var(--dim);margin-top:4px">每人限购 {{ detail.product.per_user_limit }} 件</p>

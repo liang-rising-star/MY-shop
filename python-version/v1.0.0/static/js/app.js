@@ -799,6 +799,9 @@ const timedProducts = computed(() => eventProducts.value)
     })
 
     watch(token, () => { if(token.value){ loadProfile(); loadOrders(); loadMyCoupons() } })
+    watch(() => detail.value?.card_key_count, (count) => {
+      if (count !== undefined && count <= 0) { buyQty.value = 0 }
+    })
     watch(() => config.value.popup_notice, (val) => {
       if (val && !showPopupNotice.value && !sessionStorage.getItem('popup_notice_closed')) {
         showPopupNotice.value = true

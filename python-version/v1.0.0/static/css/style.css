@@ -779,6 +779,8 @@ video::part(playback-speed-button) {
 .qty-btn:last-child { border-radius: 0 4px 4px 0; }
 .qty-btn:hover:not(:disabled) { background: var(--neon-cyan); color: var(--bg); }
 .qty-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.qty-disabled .qty-btn { opacity: 0.25; cursor: not-allowed; border-color: var(--dim); color: var(--dim); }
+.qty-disabled .qty-input { opacity: 0.25; cursor: not-allowed; border-color: var(--dim); color: var(--dim); }
 .qty-control .qty-input {
   width: 52px;
   height: 36px;
