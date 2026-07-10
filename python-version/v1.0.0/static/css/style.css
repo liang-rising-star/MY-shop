@@ -608,8 +608,7 @@ select.input-neon { cursor: pointer; }
   min-width: 0;
 }
 .detail-img {
-  aspect-ratio: 4/3;
-  max-height: 420px;
+  height: 360px;
   background: var(--bg2);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
@@ -848,7 +847,7 @@ video::part(playback-speed-button) {
 
 @media (max-width: 768px) {
   .detail { grid-template-columns: 1fr; gap: 1.5rem; }
-  .detail-img { max-height: 250px; }
+  .detail-img { height: 280px; }
 }
 
 /* ===== Cart ===== */
@@ -1525,7 +1524,7 @@ textarea.input-neon { min-height: 100px; resize: vertical; }
 /* ===== Detail Responsive ===== */
 @media(max-width:768px){
   .detail{grid-template-columns:1fr;gap:1.5rem}
-  .detail-img{max-height:300px}
+  .detail-img{height:280px}
   .detail-name{font-size:1.3rem}
   .detail-price{font-size:1.4rem}
 }
