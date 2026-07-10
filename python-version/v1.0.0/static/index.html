@@ -340,11 +340,11 @@
                   <div class="detail-stock">库存 {{ detail.card_key_count }} · 已售 {{ detail.product.total_sold }}</div>
                   <div v-if="detail.product.description" style="margin-top:0.8rem;padding-top:0.8rem;border-top:1px solid var(--border);font-size:0.85rem;color:var(--text-dim);line-height:1.6">{{ detail.product.description }}</div>
                 </div>
-                <div v-if="detail.product.buy_notice" class="detail-notice" style="margin-top:1rem;padding:1rem;background:rgba(255,170,0,0.05);border-radius:8px;border:1px solid rgba(255,170,0,0.15)">
+                <div v-if="detail.product.buy_notice" class="detail-notice" style="margin-top:-4px;padding:1rem;background:rgba(255,170,0,0.05);border-radius:8px;border:1px solid rgba(255,170,0,0.15)">
                   <h4 style="font-size:0.85rem;color:var(--warning);margin-bottom:0.5rem"><i class="fas fa-exclamation-triangle"></i> 购买须知</h4>
                   <p style="font-size:0.82rem;color:var(--text);line-height:1.6;white-space:pre-wrap">{{ detail.product.buy_notice }}</p>
                 </div>
-                <div v-if="detail.product.after_sale_notice" class="detail-after-sale" style="margin-top:1rem;padding:1rem;background:rgba(0,240,255,0.05);border-radius:8px;border:1px solid rgba(0,240,255,0.15)">
+                <div v-if="detail.product.after_sale_notice" class="detail-after-sale" style="margin-top:-4px;padding:1rem;background:rgba(0,240,255,0.05);border-radius:8px;border:1px solid rgba(0,240,255,0.15)">
                   <h4 style="font-size:0.85rem;color:var(--primary);margin-bottom:0.5rem"><i class="fas fa-shield-alt"></i> 售后说明</h4>
                   <p style="font-size:0.82rem;color:var(--text);line-height:1.6;white-space:pre-wrap">{{ detail.product.after_sale_notice }}</p>
                 </div>
