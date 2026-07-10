@@ -170,6 +170,15 @@ const app = createApp({
       if (route === 'detail' && parts[1]) {
         const pid = parseInt(parts[1])
         if (pid) {
+          let pendingQty = 1
+          try {
+            const pending = JSON.parse(sessionStorage.getItem('pendingBuy') || 'null')
+            if (pending && pending.pid == pid) {
+              pendingQty = pending.qty || 1
+              sessionStorage.removeItem('pendingBuy')
+            }
+          } catch(e) {}
+          buyQty.value = pendingQty
           const loadDetail = (d) => {
             detail.value = d
             setupDetailMedia(d.product, d.product.id)
@@ -309,7 +318,9 @@ const timedProducts = computed(() => eventProducts.value)
     async function loadCoupons() { try { coupons.value = await API.listCoupons() } catch(e){} }
     async function loadProfile() {
       if (!token.value) return
-      try { user.value = await API.getProfile() } catch(e) { token.value=null; try { localStorage.removeItem('token') } catch(e2) {} }
+      try { user.value = await API.getProfile() } catch(e) {
+        if (e.status === 401) { token.value=null; try { localStorage.removeItem('token') } catch(e2) {} }
+      }
     }
     async function loadMyCoupons() { if(!token.value) return; try { myCoupons.value = await API.getMyCoupons() } catch(e){} }
     async function loadCardKeys() { if(!keyProductID.value) return; try { cardKeys.value = await API.listCardKeys(keyProductID.value) } catch(e){} }
@@ -348,11 +359,10 @@ const timedProducts = computed(() => eventProducts.value)
         const d=await API.login(authUser.value, authPass.value, captchaKey.value, captchaCode.value)
         token.value=d.token; API.token=d.token; try { localStorage.setItem('token',d.token) } catch(e) {}
         authUser.value=authPass.value=captchaCode.value=''; toast('登录成功')
-        loadProfile(); loadOrders(); loadMyCoupons(); loadCaptcha()
         const params=new URLSearchParams(window.location.search)
         const redirect=params.get('redirect')
         if(redirect){ window.location.href=decodeURIComponent(redirect) }
-        else{ navigate('home') }
+        else{ loadProfile(); loadOrders(); loadMyCoupons(); loadCaptcha(); navigate('home') }
       } catch(e){ authErr.value=e.message; captchaCode.value=''; loadCaptcha() }
     }
     async function doReg() {
@@ -370,7 +380,16 @@ const timedProducts = computed(() => eventProducts.value)
       if (!p) { toast('商品数据错误', 'error'); return }
       const pid = p.id ?? p.ID
       if (!pid) { toast('商品ID错误', 'error'); return }
-      detail.value=null; lastOrder.value=null; buyQty.value=1; reviews.value=[]; detailMediaList.value=[]; detailMediaIdx.value=0
+      detail.value=null; lastOrder.value=null; reviews.value=[]; detailMediaList.value=[]; detailMediaIdx.value=0
+      let pendingQty = 1
+      try {
+        const pending = JSON.parse(sessionStorage.getItem('pendingBuy') || 'null')
+        if (pending && pending.pid == pid) {
+          pendingQty = pending.qty || 1
+          sessionStorage.removeItem('pendingBuy')
+        }
+      } catch(e) {}
+      buyQty.value = pendingQty
       try { 
         const d=await API.getProduct(pid); 
         detail.value=d;
@@ -483,7 +502,13 @@ const timedProducts = computed(() => eventProducts.value)
       });
     })
     async function checkout(product) {
-      if(!token.value){ toast('请先登录','error'); navigate('login'); return }
+      if(!token.value){
+        const pid = product.id || product.ID
+        try { sessionStorage.setItem('pendingBuy', JSON.stringify({ pid, qty: buyQty.value || 1 })) } catch(e) {}
+        toast('请先登录','error')
+        window.location.href = '/login?redirect=' + encodeURIComponent('/detail/' + pid)
+        return
+      }
       const pid = product.id || product.ID
       if(!pid){ toast('商品ID错误','error'); return }
       try {
@@ -785,12 +810,12 @@ const timedProducts = computed(() => eventProducts.value)
     onMounted(() => {
       document.addEventListener('click', handleFirstInteraction, { once: true });
       initRoute()
+      loadProfile()
       if (page.value !== 'detail') {
         checkSetup()
         loadConfig()
         loadProducts()
         loadCategories()
-        loadProfile()
         loadCaptcha()
       }
       initParticles()
