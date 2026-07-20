@@ -495,11 +495,26 @@ async def generate_video_thumbnail(pid: int, request: Request, video_url: str = 
         video_path = ""
         basename = os.path.basename(video_url) if video_url else ""
         
+        # 查找视频文件：先在vedio目录，再在image目录（有些视频误存到image目录）
         vedio_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
-        if os.path.isdir(vedio_dir) and basename:
-            for f in os.listdir(vedio_dir):
-                if f == basename:
-                    video_path = os.path.join(vedio_dir, f)
+        image_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "image")
+        
+        for search_dir in [vedio_dir, image_dir]:
+            if os.path.isdir(search_dir) and basename:
+                # 先按原文件名查找
+                for f in os.listdir(search_dir):
+                    if f == basename:
+                        video_path = os.path.join(search_dir, f)
+                        break
+                # 如果没找到，尝试按编号匹配（如VID_3_1.mp4 对应 IMG_3_1.mp4）
+                if not video_path and basename.startswith("VID_"):
+                    parts = basename.replace("VID_", "IMG_").rsplit(".", 1)
+                    if len(parts) == 2:
+                        for f in os.listdir(search_dir):
+                            if f.startswith(parts[0]) and f.endswith(f".{parts[1]}"):
+                                video_path = os.path.join(search_dir, f)
+                                break
+                if video_path:
                     break
         
         if not video_path and video_url.startswith("/api/resource/"):

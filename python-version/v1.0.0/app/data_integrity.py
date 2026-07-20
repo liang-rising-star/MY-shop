@@ -29,7 +29,7 @@ def _save_issues(issues):
 def record_missing_file(file_path, product_id=0, product_name="系统文件", file_type="unknown"):
     """记录缺失文件，同一路径只记一次"""
     issues = _load_issues()
-    existing = [i for i in issues if i["file_path"] == file_path and i["status"] == "open"]
+    existing = [i for i in issues if i.get("file_path") == file_path and i.get("status") == "open"]
     if existing:
         return
     issues.append({
@@ -45,17 +45,17 @@ def record_missing_file(file_path, product_id=0, product_name="系统文件", fi
 
 def get_open_issues():
     issues = _load_issues()
-    return [i for i in issues if i["status"] == "open"]
+    return [i for i in issues if i.get("status") == "open"]
 
 def resolve_issue(issue_id):
     issues = _load_issues()
     for i in issues:
-        if i["id"] == issue_id:
+        if i.get("id") == issue_id:
             i["status"] = "resolved"
             i["resolved_at"] = datetime.datetime.now().isoformat()
             break
     _save_issues(issues)
-    return len([i for i in issues if i["status"] == "open"])
+    return len([i for i in issues if i.get("status") == "open"])
 
 def get_open_count():
     return len(get_open_issues())
