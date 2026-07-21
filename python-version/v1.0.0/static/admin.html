@@ -1398,6 +1398,30 @@ input:checked + .slider:before{transform:translateX(20px)}
   </div>
 </div>
 
+<!-- 保存进度弹窗 -->
+<div v-if="savingProduct" class="modal-overlay" style="z-index:9999">
+  <div class="modal" style="max-width:400px;text-align:center">
+    <div style="padding:2rem">
+      <div style="font-size:2rem;margin-bottom:1rem;color:var(--primary)">
+        <i class="fas fa-spinner fa-spin"></i>
+      </div>
+      <h3 style="margin-bottom:0.5rem">{{ editingProduct ? '正在保存修改...' : '正在创建商品...' }}</h3>
+      <p style="color:var(--dim);font-size:0.9rem">正在处理媒体文件，请稍候</p>
+      <div style="margin-top:1rem;background:var(--bg);border-radius:8px;overflow:hidden;height:6px">
+        <div style="width:100%;height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));animation:progress-pulse 1.5s ease-in-out infinite"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes progress-pulse {
+  0% { opacity: 0.5; transform: scaleX(0.3); transform-origin: left; }
+  50% { opacity: 1; transform: scaleX(0.8); transform-origin: left; }
+  100% { opacity: 0.5; transform: scaleX(0.3); transform-origin: left; }
+}
+</style>
+
 <!-- 库存设置弹窗 -->
 <div v-if="showRestockModal" class="modal-overlay" >
   <div class="modal" style="max-width:500px">
@@ -1768,6 +1792,7 @@ const kp=ref(0),kt=ref(''),spf=ref(false),eid=ref(0),pf=ref({name:'',description
 const selectedKeys=ref([])
 const showProductModal=ref(false),editingProduct=ref(null),fileInput=ref(null),mediaFileInput=ref(null),dragIdx=ref(-1),dragEl=ref(null),uploadProgress=ref(-1),videoThumbMap=ref({}),productForm=ref({name:'',short_description:'',description:'',content:'',price:0,original_price:null,cost_price:null,discount:0,discount_mode:'none',discount_percent:0,discount_price:null,discount_start:'',discount_end:'',category_id:0,image_url:'',images:'',video_url:'',imageList:[],mediaList:[],featured:false,is_hot:false,is_new:false,is_recommend:false,is_seckill:false,type:'normal',stock:-1,stock_warning:10,total_stock:0,max_buy_limit:0,per_user_limit:0,delivery_type:'card_key',file_path:'',file_name:'',file_size:'',auto_delivery_content:'',is_active:true,sort_order:0,seo_title:'',seo_keywords:'',seo_description:'',tags:'',buy_notice:'',after_sale_notice:'',allow_comments:true})
 const currentTaskId=ref('')
+const savingProduct=ref(false)
 const productFiles=ref([])
 const showRestockModal=ref(false),restockProduct=ref(null),restockKeys=ref(''),restockFiles=ref([]),restockStockCount=ref(0),quickGenerateCount=ref(100)
 const refreshingStock=ref(false),stockUpdateTime=ref({}),stockPollInterval=ref(null)
@@ -1804,6 +1829,7 @@ function openProductModal(p){
       is_active:p.is_active!==false,sort_order:p.sort_order||0,seo_title:p.seo_title||'',seo_keywords:p.seo_keywords||'',seo_description:p.seo_description||'',
       tags:p.tags||'',buy_notice:p.buy_notice||'',after_sale_notice:p.after_sale_notice||'',allow_comments:p.allow_comments!==false
     };
+    currentTaskId.value='task_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
     if(p.id)loadProductFiles(p.id);
   }else{
     editingProduct.value=null;
@@ -1886,8 +1912,8 @@ async function handleMediaUpload(e){
         const fd=new FormData();
         fd.append('file',file);
         fd.append('file_type','product_image');
-        if(editingProduct.value)fd.append('product_id',editingProduct.value);
-        else if(currentTaskId.value)fd.append('task_id',currentTaskId.value);
+        if(currentTaskId.value)fd.append('task_id',currentTaskId.value);
+        else if(editingProduct.value)fd.append('product_id',editingProduct.value);
         const xhr=new XMLHttpRequest();
         xhr.open('POST','/api/admin/upload');
         const tk=token.value;
@@ -2001,8 +2027,8 @@ async function loadRecommends(){
     recommends.value=data||[];
   }catch(e){console.error(e);}
 }
-function closeProductModal(){if(uploadProgress.value>=0){tst('请等待文件上传完成','er');return}if(!editingProduct.value&&currentTaskId.value){api.rq('POST','/api/admin/upload/cleanup',{task_id:currentTaskId.value}).catch(()=>{})}showProductModal.value=false;editingProduct.value=null;currentTaskId.value='';}
-function saveProduct(){if(uploadProgress.value>=0){tst('请等待文件上传完成','er');return}const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=d.mediaList.join(',');d.video_url=vids.join(',');d.video_thumbnails=vids.map(v=>videoThumbMap.value[v]||'').join(',');if(!editingProduct.value&&currentTaskId.value)d.task_id=currentTaskId.value;const needAdjustStock=editingProduct.value&&d.total_stock>0&&d.available_stock>d.total_stock;const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then((res)=>{if(needAdjustStock){api.rq('POST','/api/admin/products/'+editingProduct.value.id+'/adjust-stock',{count:d.total_stock}).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('修改已保存，库存已自动调整为'+d.total_stock,'ok')}).catch(e=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('修改已保存，但库存调整失败','er')})}else{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'修改已保存':'商品已创建','ok')}}).catch(e=>tst(e.message,'er'))}
+function closeProductModal(){if(uploadProgress.value>=0){tst('请等待文件上传完成','er');return}if(currentTaskId.value){api.rq('POST','/api/admin/upload/cleanup',{task_id:currentTaskId.value}).catch(()=>{})}showProductModal.value=false;editingProduct.value=null;currentTaskId.value='';}
+function saveProduct(){if(uploadProgress.value>=0){tst('请等待文件上传完成','er');return}const d=productForm.value;if(!d.name){tst('请输入商品名称','er');return}if(d.price===''||d.price===null||isNaN(Number(d.price))||Number(d.price)<0){tst('请输入有效的商品价格（必须为数字）','er');return}d.price=Number(d.price);if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!==''&&isNaN(Number(d.discount_price))){tst('请输入有效的降价金额（必须为数字）','er');return}if(d.discount_mode==='fixed'&&d.discount_price!==null&&d.discount_price!=='')d.discount_price=Number(d.discount_price);const vids=d.mediaList.filter(m=>m.includes('.mp4')||m.includes('.webm')||m.includes('.mov'));const imgs=d.mediaList.filter(m=>!m.includes('.mp4')&&!m.includes('.webm')&&!m.includes('.mov'));d.image_url=d.mediaList[0]||'';d.images=imgs.join(',');d.video_url=vids.join(',');d.video_thumbnails=vids.map(v=>videoThumbMap.value[v]||'').join(',');if(currentTaskId.value)d.task_id=currentTaskId.value;const needAdjustStock=editingProduct.value&&d.total_stock>0&&d.available_stock>d.total_stock;savingProduct.value=true;const fn=editingProduct.value?api.rq('PUT','/api/admin/products/'+editingProduct.value,d):api.rq('POST','/api/admin/products',d);fn.then((res)=>{if(needAdjustStock){api.rq('POST','/api/admin/products/'+editingProduct.value.id+'/adjust-stock',{count:d.total_stock}).then(()=>{savingProduct.value=false;closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('修改已保存，库存已自动调整为'+d.total_stock,'ok')}).catch(e=>{savingProduct.value=false;closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('修改已保存，但库存调整失败','er')})}else{savingProduct.value=false;closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst(editingProduct.value?'修改已保存':'商品已创建','ok')}}).catch(e=>{savingProduct.value=false;tst(e.message,'er')})}
 async function deleteProduct(){if(!editingProduct.value)return;if(!(await confirmAsync('确定删除此商品？此操作不可恢复！')))return;api.rq('DELETE','/api/admin/products/'+editingProduct.value).then(()=>{closeProductModal();api.rq('GET','/api/products').then(r=>ps.value=r.products||[]);tst('商品已删除','ok')}).catch(e=>tst(e.message,'er'))}
 function getStockClass(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'high'}
 function getStockStatus(p){const available=p.available_stock||0;const total=p.total_stock||0;const warning=p.stock_warning||10;if(available===0)return'empty';if(total>0&&available<=total*0.2)return'low';if(available<=warning)return'low';return'available'}
@@ -2434,7 +2460,7 @@ async function saveLogRetention(){
 async function manualCleanupLogs(){
   try{await api.rq('POST','/api/admin/logs/cleanup');tst('已清理过期日志','ok');loadLogs()}catch(e){tst(e.message,'er')}
 }
-return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,restockFiles,restockStockCount,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,handleRestockFileUpload,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,integrityIssues,showIntegrityPopup,integrityCount,checkIntegrity,resolveIntegrityIssue,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,uploadSystemImage,sysImgProgress,sysImgUploading,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,      loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
+return{rd,msg,tb,un,ts,tst,ps,or,us,cs,ct,ks,da,kp,kt,spf,eid,pf,showProductModal,editingProduct,fileInput,mediaFileInput,dragIdx,dragEl,uploadProgress,savingProduct,productFiles,productForm,openProductModal,closeProductModal,saveProduct,deleteProduct,refreshingStock,stockUpdateTime,stockUpdateWatcher,getStockClass,getStockStatus,getStockText,refreshAllStocks,startStockPolling,stopStockPolling,showRestockModal,restockProduct,restockKeys,restockFiles,restockStockCount,quickGenerateCount,openRestockModal,closeRestockModal,getKeyCount,generateKey,generateKeys,generateQuickKeys,generateAndAddKeys,handleRestockFileUpload,confirmRestock,sco,scf,cpc,cf,promoCodes,coupons,showAddCoupon,newCoupon,coTab,newPromo,newRedeem,inviteRecords,invSettings,integrityIssues,showIntegrityPopup,integrityCount,checkIntegrity,resolveIntegrityIssue,ready,open,toggle,toggleAccordion,st,lt,ev,pay,rechargeRecords,me,permMenus,visibleMe,canEdit,canRead,isMySuperAdmin,myPerms,saveSt,testEmail,testSms,uploadSystemImage,sysImgProgress,sysImgUploading,saveLt,saveEv,savePay,svPd,edPd,dlPd,sk,sp,imK,dlK,loadCardKeys,selectedKeys,toggleSelectAllFn,batchDeleteKeys,completeOrder,cancelOrder,toggleAdmin,editUser,showEditUser,editingUserId,editUserForm,saveEditUser,showEditCategory,editingCategoryId,editCategoryForm,saveEditCategory,showGiveCoupon,giveCouponId,giveCouponName,giveUsername,doGiveCoupon,orFilter,filteredOrders,mkCo,dlCo,mkCt,dlCt,fm,stTxt,al,eventProducts,showEventProductModal,editingEventProduct,eventProductForm,openEventProductModal,closeEventProductModal,saveEventProduct,deleteEventProduct,imageFileInput,triggerMediaUpload,handleMediaUpload,eventImageFileInput,triggerEventImageUpload,handleEventImageUpload,removeEventImage,currentTheme,changeTheme,generatePromoCode,copyPromoCode,loadPromoCodes,loadCoupons,addCoupon,delCoupon,giveCoupon,getCouponName,createPromoCode,createRedeemCode,loadInviteSettings,loadInviteRecords,saveInvSettings,openAddProductModal,charts,maxDaily,maxMonthly,recommends,compressFiles,createRule,deleteRecommend,deleteRule,removeProductFile,handleFileAreaClick,removeProductMedia,dragMediaStart,dragMediaOver,dragMediaDrop,dragMediaEnd,toggleProductActive,toggleProductInRecommend,userTab,userSearch,userSearchType,userSort,filteredUsers,loadUsers,logTab,logSort,logPage,logPageSize,logTotal,logs,logRetention,logCatName,loadLogs,loadLogRetention,saveLogRetention,manualCleanupLogs,showDeliverModal,deliverOrder,deliverContent,openDeliverModal,submitDeliver,goToUser,showConfirmModal,confirmMessage,confirmResolveFn,showAddRule,newRule}
 }
 }).directive('autoresize', {
   mounted(el) {

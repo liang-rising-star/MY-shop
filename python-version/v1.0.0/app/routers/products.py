@@ -85,14 +85,24 @@ def _migrate_product_files(pid, data):
                     setattr(p, k, v)
                 s.commit()
 
-    for task_id in temp_dirs_to_clean:
-        task_dir = os.path.join(config.TEMP_DIR, task_id)
+    # 清理所有涉及的临时目录
+    all_task_ids = temp_dirs_to_clean | ({task_id} if task_id else set())
+    for tid in all_task_ids:
+        task_dir = os.path.join(config.TEMP_DIR, tid)
         if os.path.isdir(task_dir):
-            shutil.rmtree(task_dir, ignore_errors=True)
-    if task_id and task_id not in temp_dirs_to_clean:
-        task_dir = os.path.join(config.TEMP_DIR, task_id)
-        if os.path.isdir(task_dir):
-            shutil.rmtree(task_dir, ignore_errors=True)
+            # 先删除目录内所有文件
+            for f in os.listdir(task_dir):
+                fp = os.path.join(task_dir, f)
+                try:
+                    if os.path.isfile(fp):
+                        os.remove(fp)
+                except OSError:
+                    pass
+            # 再删除目录本身
+            try:
+                shutil.rmtree(task_dir)
+            except OSError:
+                pass
 
 def save_product_backup(pid, product_data):
     """保存商品备份到 bakup.json"""
@@ -286,6 +296,23 @@ async def update_product(pid: int, data: dict, request: Request):
                         except OSError: pass
                         break
         
+        # 清理被删除视频对应的 show_frame 缩略图
+        removed_videos = old_videos - new_videos
+        for url in removed_videos:
+            basename = os.path.basename(url)
+            if basename:
+                show_frame_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "show_frame")
+                if os.path.isdir(show_frame_dir):
+                    # 获取视频编号，如 VID_3_1.mp4 -> 1
+                    parts = basename.replace("VID_", "").rsplit(".", 1)
+                    if len(parts) == 2:
+                        vid_num = parts[0].split("_")[-1] if "_" in parts[0] else ""
+                        for f in os.listdir(show_frame_dir):
+                            # 删除对应的缩略图，如 SF_3_1.jpg
+                            if vid_num and f.startswith(f"SF_{pid}_{vid_num}"):
+                                try: os.remove(os.path.join(show_frame_dir, f))
+                                except OSError: pass
+        
         dt_fields = {'discount_start','discount_end','start_at','end_at'}
         for k, v in data.items():
             if hasattr(p, k):
@@ -295,6 +322,7 @@ async def update_product(pid: int, data: dict, request: Request):
         p.updated_at = datetime.datetime.utcnow()
         s.commit()
         save_product_backup(pid, {c.name: getattr(p, c.name) for c in p.__table__.columns})
+        _migrate_product_files(pid, data)
         return {c.name: getattr(p, c.name) for c in p.__table__.columns}
 
 @router.delete("/api/admin/products/{pid}")
@@ -385,31 +413,15 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
     
     is_video = ext in ('.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp')
     
-    if product_id > 0:
-        pid = product_id
-        if file_type == "logo":
-            target_dir = os.path.join(config.UPLOAD_DIR, "images", "logos")
-            name = f"{uuid.uuid4().hex}{ext}"
-        else:
-            if is_video:
-                target_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
-                prefix = f"VID_{pid}_"
-            else:
-                target_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "image")
-                prefix = f"IMG_{pid}_"
-            os.makedirs(target_dir, exist_ok=True)
-            existing = [f for f in os.listdir(target_dir) if f.startswith(prefix)]
-            next_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
-            name = f"{prefix}{next_id}{ext}"
+    if file_type == "logo":
+        target_dir = os.path.join(config.UPLOAD_DIR, "images", "logos")
+        name = f"{uuid.uuid4().hex}{ext}"
     elif task_id:
         target_dir = os.path.join(config.TEMP_DIR, task_id)
         os.makedirs(target_dir, exist_ok=True)
         name = f"{uuid.uuid4().hex}{ext}"
     else:
-        if file_type == "logo":
-            target_dir = os.path.join(config.UPLOAD_DIR, "images", "logos")
-        else:
-            target_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
+        target_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
         os.makedirs(target_dir, exist_ok=True)
         name = f"{uuid.uuid4().hex}{ext}"
     
@@ -417,12 +429,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
     with open(path, "wb") as f:
         f.write(content)
     
-    if product_id > 0:
-        if is_video:
-            rel_path = f"shop/{pid}/media/video/vedio/{name}"
-        else:
-            rel_path = f"shop/{pid}/media/image/{name}"
-    elif task_id:
+    if task_id:
         rel_path = f"uploads_temp/{task_id}/{name}"
     else:
         rel_path = os.path.relpath(path, config.UPLOAD_DIR).replace("\\", "/").replace("\\", "/")
@@ -440,24 +447,29 @@ async def upload_file(request: Request, file: UploadFile = File(...), file_type:
                     if max(h, w) > 200:
                         scale = 200 / max(h, w)
                         frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
-                    if product_id > 0:
+                    if task_id:
+                        thumb_dir = os.path.join(config.TEMP_DIR, task_id)
+                        os.makedirs(thumb_dir, exist_ok=True)
+                        thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
+                        thumb_path = os.path.join(thumb_dir, thumb_name)
+                        cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                        cap.release()
+                        thumb_url = f"/api/resource/uploads_temp/{task_id}/{thumb_name}"
+                    elif product_id > 0:
                         thumb_dir = os.path.join(config.SHOP_DATA_DIR, str(product_id), "media", "video", "show_frame")
                         os.makedirs(thumb_dir, exist_ok=True)
                         existing_sf = [f for f in os.listdir(thumb_dir) if f.startswith(f"SF_{product_id}_")]
                         next_sf_id = max([int(f.split("_")[-1].split(".")[0]) for f in existing_sf if f.split("_")[-1].split(".")[0].isdigit()] or [0]) + 1
                         thumb_name = f"SF_{product_id}_{next_sf_id}.jpg"
-                    else:
-                        thumb_dir = os.path.join(config.UPLOAD_DIR, "images", "others")
-                        os.makedirs(thumb_dir, exist_ok=True)
-                        thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
-                    thumb_path = os.path.join(thumb_dir, thumb_name)
-                    cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-                    cap.release()
-                    if product_id > 0:
+                        thumb_path = os.path.join(thumb_dir, thumb_name)
+                        cv2.imwrite(thumb_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                        cap.release()
                         thumb_url = f"/api/resource/shop/{product_id}/media/video/show_frame/{thumb_name}"
                     else:
-                        thumb_rel = os.path.relpath(thumb_path, config.UPLOAD_DIR).replace("\\", "/")
-                        thumb_url = f"/api/resource/{thumb_rel}"
+                        cap.release()
+                else:
+                    cap.release()
+            else:
                 cap.release()
         except Exception as e:
             print(f"[Thumbnail Error] {e}")
@@ -495,26 +507,11 @@ async def generate_video_thumbnail(pid: int, request: Request, video_url: str = 
         video_path = ""
         basename = os.path.basename(video_url) if video_url else ""
         
-        # 查找视频文件：先在vedio目录，再在image目录（有些视频误存到image目录）
         vedio_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "video", "vedio")
-        image_dir = os.path.join(config.SHOP_DATA_DIR, str(pid), "media", "image")
-        
-        for search_dir in [vedio_dir, image_dir]:
-            if os.path.isdir(search_dir) and basename:
-                # 先按原文件名查找
-                for f in os.listdir(search_dir):
-                    if f == basename:
-                        video_path = os.path.join(search_dir, f)
-                        break
-                # 如果没找到，尝试按编号匹配（如VID_3_1.mp4 对应 IMG_3_1.mp4）
-                if not video_path and basename.startswith("VID_"):
-                    parts = basename.replace("VID_", "IMG_").rsplit(".", 1)
-                    if len(parts) == 2:
-                        for f in os.listdir(search_dir):
-                            if f.startswith(parts[0]) and f.endswith(f".{parts[1]}"):
-                                video_path = os.path.join(search_dir, f)
-                                break
-                if video_path:
+        if os.path.isdir(vedio_dir) and basename:
+            for f in os.listdir(vedio_dir):
+                if f == basename:
+                    video_path = os.path.join(vedio_dir, f)
                     break
         
         if not video_path and video_url.startswith("/api/resource/"):
